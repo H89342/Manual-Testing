@@ -1,0 +1,1334 @@
+{
+  "info": {
+    "_postman_id": "f4fa8045-c873-4a32-93bd-6dc99e02c19b",
+    "name": "Telemax — Device & Vehicle Setup API",
+    "description": "API test collection for the Telemax Device & Vehicle Setup flow.\nGenerated from TESTCASE_RULES.md and TC data.\nImport into Postman: File → Import → Upload Files.\nSet environment variables before running: base_url, access_token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Phase 1 — Device Connection",
+      "item": [
+        {
+          "name": "API-001: Verify validating registered IMEI returns 200 with connected status",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  "",
+                  "// Clear stale chained variables",
+                  "pm.environment.unset('response_device_id');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('device_id');",
+                  "    pm.expect(json.status).to.eql(\"connected\");",
+                  "    pm.expect(json.imei).to.eql(\"860211234567890\");",
+                  "});",
+                  "",
+                  "// 3. Sensitive fields must be absent",
+                  "pm.test('No sensitive fields exposed', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.not.have.property('secret_key');",
+                  "    pm.expect(json).to.not.have.property('internal_token');",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "// 5. Save values for chaining",
+                  "pm.test('Save chained values to environment', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('response_device_id', json.device_id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/device/validate-imei",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "device",
+                "validate-imei"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imei\": \"860211234567890\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[PENDING] API-002: Verify validating unregistered IMEI returns 404 Device Not Found",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-007",
+                  "// Question: What are the exact field names in the 404 error response body for unregistered IMEI?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-007",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 404 Not Found', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.eql(\"device_not_found\");",
+                  "    pm.expect(json.message).to.eql(\"The IMEI provided is not registered to your account.\");",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/device/validate-imei",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "device",
+                "validate-imei"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imei\": \"860299999999999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[PENDING] API-003: Verify validating IMEI without auth token returns 401 Unauthorized",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-008",
+                  "// Question: Does this endpoint require a Bearer token? What is the exact 401 response body?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-008",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// No auth token set — testing unauthenticated request",
+                  "pm.request.headers.remove('Authorization');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.eql(\"unauthorized\");",
+                  "    pm.expect(json).to.have.property('message');",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/device/validate-imei",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "device",
+                "validate-imei"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imei\": \"860211234567890\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-004: Verify validating malformed IMEI returns 422 Unprocessable Entity",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 422 Unprocessable Entity', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.eql(\"validation_error\");",
+                  "    pm.expect(json.field).to.eql(\"imei\");",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/device/validate-imei",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "device",
+                "validate-imei"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imei\": \"12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-005: Verify validating request with missing IMEI field returns 422",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 422 Unprocessable Entity', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.eql(\"validation_error\");",
+                  "    pm.expect(json.field).to.eql(\"imei\");",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/device/validate-imei",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "device",
+                "validate-imei"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Phase 2 — Photo Upload (OCR)",
+      "item": [
+        {
+          "name": "[PENDING] API-006: Verify uploading odometer photo returns 200 with OCR processing status",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-009",
+                  "// Question: What is the max file size and accepted MIME types for photo uploads?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-009",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  "",
+                  "// Generate dynamic values",
+                  "pm.environment.set('upload_timestamp', new Date().toISOString());",
+                  "",
+                  "// Clear stale chained variables",
+                  "pm.environment.unset('response_ocr_odometer');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"processing\");",
+                  "    pm.expect(json.photo_type).to.eql(\"odometer\");",
+                  "    pm.expect(json).to.have.property('job_id');",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "// 5. Save values for chaining",
+                  "pm.test('Save chained values to environment', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('response_ocr_odometer_job', json.job_id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/photos/upload",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle",
+                "photos",
+                "upload"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"photo_type\": \"odometer\",\n  \"file\": \"{{odometer_image_base64}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[PENDING] API-007: Verify uploading VIN photo returns 200 with OCR processing status",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-009",
+                  "// Question: What is the max file size and accepted MIME types for photo uploads?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-009",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  "",
+                  "// Clear stale chained variables",
+                  "pm.environment.unset('response_ocr_vin_job');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"processing\");",
+                  "    pm.expect(json.photo_type).to.eql(\"vin\");",
+                  "    pm.expect(json).to.have.property('job_id');",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "// 5. Save values for chaining",
+                  "pm.test('Save chained values to environment', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('response_ocr_vin_job', json.job_id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/photos/upload",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle",
+                "photos",
+                "upload"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"photo_type\": \"vin\",\n  \"file\": \"{{vin_image_base64}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[PENDING] API-008: Verify uploading registration plate photo returns 200 with OCR processing status",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-009",
+                  "// Question: What is the max file size and accepted MIME types for photo uploads?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-009",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  "",
+                  "// Clear stale chained variables",
+                  "pm.environment.unset('response_ocr_plate_job');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"processing\");",
+                  "    pm.expect(json.photo_type).to.eql(\"registration_plate\");",
+                  "    pm.expect(json).to.have.property('job_id');",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "// 5. Save values for chaining",
+                  "pm.test('Save chained values to environment', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('response_ocr_plate_job', json.job_id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/photos/upload",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle",
+                "photos",
+                "upload"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"photo_type\": \"registration_plate\",\n  \"file\": \"{{plate_image_base64}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Phase 3 — OBD Sync",
+      "item": [
+        {
+          "name": "[PENDING] API-009: Verify starting OBD sync returns 200 with sync job ID",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-010",
+                  "// Question: Is POST /vehicle/sync idempotent? Does a second call create a new job or return the existing one?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-010",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  "",
+                  "// Generate dynamic values",
+                  "pm.environment.set('sync_start_time', new Date().toISOString());",
+                  "",
+                  "// Clear stale chained variables",
+                  "pm.environment.unset('response_sync_job_id');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"syncing\");",
+                  "    pm.expect(json.timeout_seconds).to.eql(60);",
+                  "    pm.expect(json).to.have.property('job_id');",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "// 5. Save values for chaining",
+                  "pm.test('Save chained values to environment', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('response_sync_job_id', json.job_id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/sync",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle",
+                "sync"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"{{response_device_id}}\",\n  \"engine_on\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[PENDING] API-010: Verify polling sync result returns 200 Sync Successful with verified OBD data",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-011",
+                  "// Question: What is the exact status code and body returned when the 60-second sync timeout is reached?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-011",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"completed\");",
+                  "    pm.expect(json.vin_verified).to.eql(true);",
+                  "    pm.expect(json).to.have.property('odometer_km');",
+                  "    pm.expect(json).to.have.property('battery_voltage');",
+                  "});",
+                  "",
+                  "// 3. Sensitive fields must be absent",
+                  "pm.test('No sensitive fields exposed', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.not.have.property('raw_obd_dump');",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "// 5. Save values for chaining",
+                  "pm.test('Save chained values to environment', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('response_vin', json.vin);",
+                  "    pm.environment.set('response_odometer', json.odometer_km);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/sync/{{response_sync_job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle",
+                "sync"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[PENDING] API-011: Verify polling sync result after 60 seconds returns 408 Sync Timeout",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-011",
+                  "// Question: What is the exact status code and body returned when the 60-second sync timeout is reached?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-011",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 408 Request Timeout', function () {",
+                  "    pm.response.to.have.status(408);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"timeout\");",
+                  "    pm.expect(json.message).to.eql(\"We haven't received OBD data from your vehicle in over 60 seconds.\");",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/sync/{{response_sync_job_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle",
+                "sync"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Phase 4 — Vehicle Review",
+      "item": [
+        {
+          "name": "API-012: Verify getting vehicle review details returns 200 with all OCR fields",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('vehicle_name');",
+                  "    pm.expect(json).to.have.property('make');",
+                  "    pm.expect(json).to.have.property('model');",
+                  "    pm.expect(json).to.have.property('vin');",
+                  "    pm.expect(json).to.have.property('vin_confidence');",
+                  "    pm.expect(json).to.have.property('registration_number');",
+                  "    pm.expect(json).to.have.property('odometer_km');",
+                  "});",
+                  "",
+                  "// 3. Sensitive fields must be absent",
+                  "pm.test('No sensitive fields exposed', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.not.have.property('password');",
+                  "    pm.expect(json).to.not.have.property('internal_id');",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/review",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle",
+                "review"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[PENDING] API-013: Verify confirming vehicle details returns 200 with confirmed status",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-012",
+                  "// Question: Does confirming vehicle details trigger any side effects (email, webhook, background job)?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-012",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(\"confirmed\");",
+                  "    pm.expect(json).to.have.property('vehicle_id');",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "// 5. Save values for chaining",
+                  "pm.test('Save chained values to environment', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.environment.set('response_vehicle_id', json.vehicle_id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/confirm",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle",
+                "confirm"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_name\": \"344ITU Ford Ranger\",\n  \"make\": \"Ford\",\n  \"model\": \"Ranger\",\n  \"build_year\": 2024,\n  \"fuel_type\": \"Diesel\",\n  \"fuel_capacity_litres\": 80,\n  \"transmission\": \"Automatic\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "[PENDING] API-014: Verify updating vehicle fuel type returns 200 with updated values",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// ⚠️  OPEN CLARIFICATION — CQ-013",
+                  "// Question: Does PUT /vehicle/{id} require the full object or accept partial field updates only?",
+                  "// Status:   Open — do NOT run this request until resolved.",
+                  "// Ref:      Clarify Requirements sheet → CQ-013",
+                  "// ─────────────────────────────────────────────────────────",
+                  "",
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.fuel_type).to.eql(\"Diesel\");",
+                  "    pm.expect(json.status).to.eql(\"updated\");",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/{{response_vehicle_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fuel_type\": \"Diesel\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "API-015: Verify confirming vehicle details with missing make field returns 422",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Set auth token from environment",
+                  "const token = pm.environment.get('access_token');",
+                  "pm.request.headers.add({ key: 'Authorization', value: 'Bearer ' + token });",
+                  ""
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 1. Status code",
+                  "pm.test('Status is 422 Unprocessable Entity', function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "// 2. Response body fields",
+                  "pm.test('Response body contains expected fields', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.eql(\"validation_error\");",
+                  "    pm.expect(json.field).to.eql(\"make\");",
+                  "});",
+                  "",
+                  "// 4. Response time",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/vehicle/confirm",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicle",
+                "confirm"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vehicle_name\": \"344ITU Ford Ranger\",\n  \"model\": \"Ranger\",\n  \"build_year\": 2024\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://staging.telemax.com",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "response_device_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "response_sync_job_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "response_vehicle_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "response_vin",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "response_odometer",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

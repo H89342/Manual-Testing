@@ -1,0 +1,676 @@
+TELEMAX EXTERNAL API
+Documentation Review &
+Developer Implementation Guide
+14 April 2026
+Developer-focused guide covering documentation fixes, new feature implementation, and Claude Code workflows
+Executive Summary
+This document is a developer-focused implementation guide for improving the Telemax External API. It draws from two documentation sources — the official docs at docs.telemax.com.au and the plain-English API reference — and covers two areas:
+ — Part A: Existing Documentation & API Issues
+10 issues ranked by priority, each with implementation steps. Incorporates findings from the plain-English reference, which surfaced several discrepancies and undocumented behaviours (e.g., token expiry mismatch, unpopulated DTC fields, no-op parameters, intentional field name typos).
+ — Part B: New Feature Implementation
+Detailed technical guidance for the 5 planned features (engine/DTC codes, webhooks, VIN lookup, fuel data, vehicle details), with endpoint designs, response schemas, and database considerations.
+ — API Bugs & Inconsistencies
+Issues surfaced by comparing the two documentation sources: no-op parameters, missing safety checks, device compatibility gaps, and response structure inconsistencies.
+Each section includes Claude Code tips showing how to use Claude Code to accelerate the work — from scaffolding endpoint code to generating OpenAPI definitions to writing test suites.
+Key Findings from the Plain-English Reference
+The plain-English API reference at extraordinary-zuccutto-1f09da.netlify.app is significantly more detailed than the official docs and reveals several issues that should be addressed:
+The OpenAPI spec says expires_in: 3600 (1 hour), but the plain-English reference states tokens last approximately 24 hours (86,399 seconds). The actual behaviour needs to be verified and documented consistently.Token expiry mismatch — 
+The DTC endpoint returns description and severity fields, but they are “typically not populated.” This is the core issue that Feature 1 (DTC enrichment) needs to solve.DTC fields are empty — 
+The isRead parameter “is accepted but currently has no effect on the outcome — the alert is always marked as read.” This should either be fixed or the parameter removed.SetAlertAsRead isRead parameter is a no-op — 
+Fields like ConnectionStrengh and UserTimeFormated are misspelled but kept for backward compatibility. This must be documented prominently.Intentional field name typos — 
+The plain-English reference notes rate limits are not currently enforced. When they are implemented (Issue #2), this will be a breaking change for partners who have been polling aggressively.Rate limits are unenforced — 
+Disabling a vehicle’s engine while moving is dangerous. This warning exists in the plain-English reference but not in the official docs.Engine disable safety warning — 
+Part A: Existing Documentation & API Issues
+The following issues were identified by reviewing the official docs (docs.telemax.com.au), the OpenAPI spec, and the plain-English API reference. They are ranked by severity and each includes implementation guidance.
+1. Error Response Documentation
+The official docs only show 200 success responses. The plain-English reference is better — it has an error reference table covering 401, 400, 404, and 5xx codes with “What Happened” and “What to Do” columns. But this only exists in the plain-English reference, not in the official docs, and it’s a single page-level table rather than per-endpoint error documentation. The error responses themselves also aren’t structured — the API returns inconsistent error formats depending on the endpoint.
+What to implement
+Create a standardised error response model across the API. Every error should return a consistent JSON structure:
+{
+  "type": "AUTHENTICATION",
+  "code": "TOKEN_EXPIRED",
+  "description": "The access token has expired. Request a new token.",
+  "requestId": "req_7f3a2b1c",
+  "docUrl": "https://docs.telemax.com.au/errors/token-expired"
+}
+Document the following error codes on every endpoint page:
+expired/malformed JWT. Include example response and link to auth guide.401 Unauthorized — 
+valid token but wrong company scope. Explain multi-company scoping.403 Forbidden — 
+unknown vehicle ID, company ID, or IMEI. Include example with the ID that was requested.404 Not Found — 
+invalid parameter format (e.g., bad ISO 8601 date string, negative vehicle ID).422 Unprocessable Entity — 
+rate limit exceeded. Document the Retry-After header and backoff strategy.429 Too Many Requests — 
+generic failure. Include the requestId field for support correlation.500 Internal Server Error — 
+Files to change
+Create a global exception handler that wraps all error responses in the standard JSON structure. This goes in your middleware pipeline (e.g., ExceptionMiddleware.cs or a ProblemDetails configuration).ASP.NET middleware — 
+Add explicit error response attributes: [ProducesResponseType(typeof(ApiError), 401)], etc.Each controller action — 
+Add error response schemas under components/schemas and reference them in each endpoint’s responses section.openapi.yaml — 
+Create a top-level /errors section with a page per error type, each showing the JSON, cause, and resolution steps.Docs site — 
+🤖 Claude Code: Generate error middleware and OpenAPI schemas
+Prompt: "Read the openapi.yaml and all controller files in /Controllers. Create an ApiError model class with fields type, code, description, requestId, and docUrl. Then create an ExceptionMiddleware that catches exceptions and returns this structure with the correct HTTP status codes. Finally, update openapi.yaml to add the ApiError schema and reference it as a 401/403/404/422/429/500 response on every endpoint."
+2. Rate Limiting & Pagination
+The plain-English reference confirms: “The Telemax API does not currently enforce request rate limits.” This means some partners may already be polling aggressively. When rate limits are introduced, it will effectively be a breaking change. Pagination is also inconsistent — only the battery health endpoint currently uses it (with items, totalResults, currentPage, numberOfPages), while endpoints like GetAlerts use a simple num parameter with no total count.
+What to implement
+Add X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, and Retry-After headers to every response. Implement via ASP.NET middleware (e.g., AspNetCoreRateLimit package or custom middleware).Rate limit headers — 
+Add page and pageSize query parameters to GetAlerts, GetAllLastPositionData, GetAllVehicleDetails (new), and any other endpoint that can return unbounded results. Return pagination metadata in the response:Pagination for list endpoints — 
+{
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "pageSize": 50,
+    "totalCount": 342,
+    "totalPages": 7
+  }
+}
+e.g., GetAlerts: max 100 per page. GetAllLastPositionData: max 500 vehicles per request. Global: 60 requests/minute per token.Document limits per endpoint — 
+Files to change
+Add rate limiting middleware to the ASP.NET pipeline. Configure per-endpoint limits in appsettings.json.Middleware — 
+Add page/pageSize parameters to list endpoints. Apply pagination at the query level (OFFSET/FETCH or equivalent).Controllers — 
+Add pagination parameters and PaginationMeta schema. Document rate limit headers.openapi.yaml — 
+🤖 Claude Code: Add pagination to existing endpoints
+Prompt: "Read the GetAlerts controller action and its data access layer. Add page (default 1) and pageSize (default 50, max 100) query parameters. Modify the database query to use OFFSET/FETCH pagination. Return the results wrapped in a paginated response with totalCount and totalPages. Update the corresponding openapi.yaml entry with the new parameters and response schema."
+3. Response Field Types, Units & Known Quirks
+Fields like Speed, Odometer, FuelLevel, DrivingTime, and Voltage are documented without types or units. Partners have to guess or reverse-engineer values. Additionally, the plain-English reference reveals intentional field name typos that are preserved for backward compatibility (ConnectionStrengh, UserTimeFormated). These must be documented prominently — developers will assume they’re bugs and file reports. The radius parameter on GetNearest is in metres (not kilometres), which is another easily missed detail.
+What to implement
+Add a schema table to every endpoint’s documentation showing field name, type, unit, nullable, and description. Example for the position data object:
+Additionally, document these known quirks on a dedicated “Known Issues & Legacy Fields” page:
+Misspelling of “ConnectionStrength.” Preserved for backward compatibility. New integrations should use this exact field name.ConnectionStrengh — 
+Misspelling of “UserTimeFormatted.” Same reason — fixing it would break existing integrations.UserTimeFormated — 
+The radius parameter is in metres, not kilometres. This is not obvious from the parameter name.GetNearest radius — 
+Responses use 2026-04-07T14:32:00 format (no fractional seconds). All timestamps are UTC unless the endpoint specifies otherwise.Date format — 
+Files to change
+Add type, format, description, and x-unit annotations to every field in every response schema. Add x-legacy-note annotations to misspelled fields.openapi.yaml — 
+Add XML doc comments with units to each DTO property. These feed into auto-generated docs.C# models — 
+Ensure the schema table renders from the OpenAPI spec for each endpoint page. Create a “Known Issues & Legacy Fields” page documenting the typos and other quirks.Docs site — 
+🤖 Claude Code: Audit and annotate all response models
+Prompt: "Read all DTO/model classes in /Models that are returned by API endpoints. For each property, add an XML summary comment specifying the data type, unit of measurement, and whether it's nullable. Then read openapi.yaml and update every response schema to include description and x-unit fields matching the model annotations. List any fields where the unit is ambiguous so I can clarify."
+4. Webhook Documentation
+The webhooks.yaml spec exists but there’s no human-readable guide. Partners can’t implement webhooks without understanding setup, events, payloads, security, and retry behaviour.
+What to implement
+Create a multi-page webhook documentation section:
+What webhooks are available, why to use them vs. polling, architecture diagram.Webhook Overview — 
+Step-by-step: register URL, select events, verify callback, test with a ping.Setup Guide — 
+One entry per event type with the exact payload JSON schema.Event Reference — 
+HMAC-SHA256 signature verification with code examples in C#, Python, and Node.js.Security — 
+Retry policy (exponential backoff, max retries, timeout window), ordering guarantees, idempotency via eventId.Delivery Behaviour — 
+Acknowledge within 10 seconds, process async, monitor queue depth, handle out-of-order delivery.Best Practices — 
+🤖 Claude Code: Generate webhook documentation from the YAML spec
+Prompt: "Read webhooks.yaml and generate a markdown documentation page for each webhook event type. For each event, include: event name, trigger condition, example payload JSON, field descriptions with types and units, and a code example showing how to verify the HMAC-SHA256 signature in C# and Python."
+5. POST-Only Architecture Note
+Every endpoint uses POST, even for reads. This confuses developers expecting REST conventions.
+What to implement
+Add a callout box to the Introduction page and repeat it in the API Reference overview:
+Note: All Telemax API endpoints use POST requests with query
+string parameters, regardless of whether they read or write data.
+This is a deliberate design choice for consistency and to simplify
+client implementations. There are no GET, PUT, PATCH, or DELETE
+endpoints.
+This is a documentation-only change. No code changes needed.
+🤖 Claude Code: Add the architecture note to the docs
+Prompt: "Read the introduction page source and the API reference overview source. Add a prominently styled callout box explaining that all endpoints use POST with query string parameters, and explain why. Place it after the authentication section on the introduction page and at the top of the API reference page."
+6. Endpoint Naming Consistency
+Current names mix conventions: “Get last position data for vehicle” vs “Gets the list of vehicles for the user” vs “Last online heartbeat for all vehicles in company.”
+What to implement
+Standardise all endpoint display names to a consistent verb-noun pattern. This is a docs/OpenAPI-only change — the actual URL paths stay the same.
+Files to change
+Update the summary field on each endpoint path.openapi.yaml — 
+If endpoint names are hardcoded in navigation, update those too.Docs site — 
+🤖 Claude Code: Rename all endpoints in the OpenAPI spec
+Prompt: "Read openapi.yaml. For every endpoint, rename the summary field to follow a consistent Verb + Noun pattern (e.g., 'Get Vehicle Position', 'List Vehicles', 'Send Engine Disable Command'). Keep the operationId and URL path unchanged. Show me the diff."
+7. Token Lifecycle Documentation
+There is a discrepancy between documentation sources: the OpenAPI spec says expires_in: 3600 (1 hour), but the plain-English reference says tokens last approximately 24 hours (86,399 seconds). The actual token response confirms the 24-hour figure. This inconsistency needs to be resolved, and the full token lifecycle needs to be documented.
+What to implement
+Create a dedicated Authentication Guide page covering:
+Fix the OpenAPI spec: the actual expiry is ~24 hours (86,399 seconds), not 3600 seconds. State this explicitly and consistently across all documentation.Token expiry — 
+Partners should cache tokens and reuse them until near-expiry. Don’t request a new token per API call.Caching strategy — 
+Document whether there’s a refresh endpoint or if partners must re-authenticate with their API key. If no refresh exists, recommend re-authenticating 5 minutes before expiry.Refresh flow — 
+Explain which companies/vehicles a token can access and how multi-company access works.Token scoping — 
+How to rotate keys without downtime (e.g., support two active keys during transition).API key rotation — 
+Files to change
+New page: /authentication-guide with the above content.Docs site — 
+Add securitySchemes documentation with token lifetime and scoping info.openapi.yaml — 
+🤖 Claude Code: Draft the authentication guide
+Prompt: "Read the authentication controller code and the token generation logic. Write a comprehensive authentication guide in markdown covering: how to obtain a token (API key vs credentials), token lifetime, recommended caching strategy, refresh/re-auth flow, token scoping rules, and API key rotation best practices. Include code examples in cURL, Python, and JavaScript."
+8. Internal Endpoint Exposure
+The “Rebuild Redis movement/trip cache (dev/ops)” endpoint is listed in the public API reference.
+What to implement
+Remove it from openapi.yaml entirely and add it to a separate internal-ops.yaml spec.Option A (recommended): 
+Keep it but move it to an “Admin” section, add a required admin scope to the auth, and document that it’s not for partner use.Option B: 
+At minimum, add a warning banner to its docs page: “This endpoint is for internal operations only and requires elevated permissions.”Immediate fix: 
+Files to change
+Remove the /api/rebuild-vehicle-movement-cache path entry.openapi.yaml — 
+Add an [Authorize(Roles = "Admin")] attribute if not already present.Controller — 
+🤖 Claude Code: Separate internal endpoints from the public spec
+Prompt: "Read openapi.yaml. Identify any endpoints that appear to be internal/admin/dev-ops operations (not for integration partners). Move them into a new file called internal-openapi.yaml with the same schema structure. Remove them from the main openapi.yaml. List what you moved and why."
+9. Use-Case Guides
+The docs jump from a quickstart to the endpoint reference with no intermediate content.
+What to implement
+Create 3–4 use-case guide pages that show how endpoints work together:
+Poll GetAllLastPositionData on an interval (or use webhooks when available). Show how to plot results on a map. Discuss polling frequency vs. data freshness.Real-Time Fleet Tracking — 
+Call GetReplayUserTime to get waypoints, decode the encoded polyline, render on Google Maps/Leaflet. Include working code example.Trip Replay — 
+Poll GetAlerts, process new alerts, call SetAlertAsRead. Show how to filter by alert type and build notification rules.Alert Monitoring Pipeline — 
+Combine GetVehicleDetails + DTC codes + battery health into a single dashboard view. Show the data join pattern.Vehicle Diagnostics Dashboard — 
+🤖 Claude Code: Generate use-case guides with code examples
+Prompt: "Read all endpoint docs in the API reference. Write a 'Real-Time Fleet Tracking' guide in markdown that shows a developer how to: 1) authenticate, 2) poll GetAllLastPositionData every 30 seconds, 3) parse the response, 4) plot vehicle positions on a Leaflet map. Include complete working code in Python (polling + data processing) and JavaScript (map rendering). Add a section on migrating to webhooks when available."
+10. Versioning & Changelog
+No API version indicator, deprecation policy, or change history exists.
+What to implement
+Add an X-API-Version response header to all endpoints (e.g., 2026-04-01 or v1). This doesn’t require URL-based versioning — just a header that tells partners which version they’re talking to.API version header — 
+Create /changelog on the docs site. Log every addition, change, or deprecation with a date and description.Changelog page — 
+Document that deprecated endpoints will continue to work for at least 6 months (or whatever the team agrees to) after deprecation notice.Deprecation policy — 
+When deprecating an endpoint, add a Sunset HTTP header with the removal date, per RFC 8594.Sunset header — 
+Files to change
+Add a response header middleware that injects X-API-Version on all responses.Middleware — 
+Set the info.version field to a meaningful version string.openapi.yaml — 
+New page: /changelog.Docs site — 
+🤖 Claude Code: Set up versioning infrastructure
+Prompt: "Create a middleware class that adds an X-API-Version header with value '2026-04-01' to every API response. Also create a changelog.md template with sections for Added, Changed, Deprecated, and Removed, following Keep a Changelog format. Pre-populate it with the current endpoint list as the initial v1 release."
+Part B: New Feature Implementation
+The team’s discussion raised five planned features with open design questions. Below is detailed technical guidance for each, including endpoint designs, response schemas, database considerations, and Claude Code workflows.
+1. Engine Codes & DTC Codes
+Open questions: Should this be a new endpoint? Are engine codes the same as DTC codes?
+Answer: Engine codes and DTC (Diagnostic Trouble Code) codes are the same standard — both follow SAE J2012/ISO 15031-6. The existing endpoint GET /api/devices/{deviceId}/dtc-codes already returns these but, critically, the plain-English reference confirms that “the description and severity fields are typically not populated.”
+Key Finding: The Front-End Already Has This Data
+The Telemax live map UI already displays rich DTC information in its notification panel. For example, when a P1094 fault is detected, the front-end shows:
+“Low voltage signal from the Bank 1, Sensor 2 oxygen sensor (located after the catalytic converter)”Description — 
+An explanation of the sensor’s role (monitors exhaust gases for emissions compliance) and the consequences of not addressing the issue (reduced fuel efficiency, engine/emission system damage).Why this matters — 
+A list of likely root causes: faulty oxygen sensor, damaged or corroded wiring/connections, exhaust leak near sensor, catalytic converter issues.Possible causes — 
+Numbered steps: 1) Schedule vehicle inspection, 2) Check for other related DTC codes, 3) Inspect oxygen sensor wiring/connectors, 4) Repair or replace faulty parts.Recommended action — 
+A “Critical” tag displayed prominently on the notification.Severity badge — 
+Where and when the fault was detected (e.g., “11 Gould Rd, Herston QLD AUS, 18/02/2026 12:15:46 PM”).Location and timestamp — 
+“This fault will not clear permanently until the root cause is resolved. Driving with this issue for extended periods may damage the catalytic converter and increase operating costs.”Persistence note — 
+This means the enrichment data already exists somewhere in the backend — the front-end is rendering it. The API work is therefore not about building a DTC lookup table from scratch; it’s about exposing the same data source the front-end already uses through the external API.
+Current API Response (from plain-English reference)
+The external API endpoint currently returns an array of arrays with unpopulated fields:
+[  [{ "code": "P0420", "description": "", "severity": "" }],
+   [{ "code": "P0171", "description": "", "severity": "" }]  ]
+Proposed API Response
+Keep the existing URL path. Flatten the array-of-arrays to a cleaner structure and expose the same enrichment fields the front-end already displays:
+GET /api/devices/{deviceId}/dtc-codes
+Authorization: Bearer {token}
+
+Response 200:
+{
+  "vehicleId": 85,
+  "deviceId": "ABC123",
+  "codes": [
+    {
+      "code": "P1094",
+      "description": "Low voltage signal from the Bank 1, Sensor 2 oxygen sensor (located after the catalytic converter)",
+      "whyItMatters": "This sensor monitors exhaust gases after the catalytic converter to ensure emissions compliance. Low voltage may indicate poor sensor performance, wiring issues, or exhaust/catalytic converter problems. If not addressed, it can reduce fuel efficiency and cause further engine or emission system damage.",
+      "possibleCauses": [
+        "Faulty oxygen sensor",
+        "Damaged or corroded wiring/connections",
+        "Exhaust leak near sensor",
+        "Catalytic converter issues"
+      ],
+      "recommendedAction": [
+        "Schedule vehicle inspection with a qualified mechanic",
+        "Check for other related diagnostic trouble codes",
+        "Inspect oxygen sensor wiring/connectors",
+        "Repair or replace faulty parts as needed"
+      ],
+      "severity": "Critical",
+      "persistenceNote": "This fault will not clear permanently until the root cause is resolved.",
+      "detectedAt": "2026-02-18T12:15:46Z",
+      "location": {
+        "address": "11 Gould Rd, Herston QLD AUS",
+        "latitude": -27.4480,
+        "longitude": 153.0234
+      },
+      "isActive": true
+    }
+  ]
+}
+Response Field Reference
+The raw DTC code string (e.g., P1094, P0420, U0100). Follows SAE J2012 format.code (string) — 
+Human-readable summary of what the code means. Matches the description shown in the front-end notification panel.description (string) — 
+Explains the real-world impact: what the affected component does, what symptoms indicate, and what happens if it’s not addressed. This is the same “Why this matters” content from the front-end.whyItMatters (string, nullable) — 
+Array of likely root causes. Matches the “Possible causes” list in the front-end.possibleCauses (string[], nullable) — 
+Ordered steps for resolution. Matches the “Recommended action” numbered list in the front-end.recommendedAction (string[], nullable) — 
+One of: Critical (vehicle should not be driven — shown as red badge in front-end), Warning (schedule service soon), or Informational (monitor only).severity (string) — 
+Explains whether the fault will self-clear or requires manual resolution. Prevents premature “all clear” assumptions.persistenceNote (string, nullable) — 
+ISO 8601 UTC timestamp when the code was first detected.detectedAt (string) — 
+Where the vehicle was when the fault was detected: address, latitude, longitude.location (object, nullable) — 
+Whether the code is currently active or has been resolved historically.isActive (boolean) — 
+Implementation Approach
+Since the front-end already renders this data, the implementation path is:
+Identify the data source the front-end uses for DTC enrichment. This could be a database table, an internal service, or a static lookup. The front-end notification panel for P1094 shows content that’s too specific and well-structured to be generated on-the-fly — it’s being looked up from somewhere.
+Wire the same data source into the external API’s DTC endpoint. The controller should call the same service/lookup the front-end uses, ensuring parity between what partners see via the API and what fleet operators see in the dashboard.
+Flatten the response structure from the current array-of-arrays to a single array of enriched code objects (as shown above).
+Add the location data from the position record at the time the fault was detected. The front-end already shows this (“11 Gould Rd, Herston QLD AUS”) so the data is available.
+Handle unknown codes gracefully — for manufacturer-specific codes not in the lookup, return the raw code with null enrichment fields. Don’t omit the code entirely.
+Additional Notes
+The API response should be a superset of what the front-end shows. If the front-end adds new fields later, the API should get them too. Consider having both use the same DTO or service layer.Front-end / API parity — 
+Store DTC codes with timestamps and location data in the database, not just the current snapshot. Partners need diagnostic history to track recurring issues and identify vehicles with chronic problems.Historical persistence — 
+Add a note in the documentation that “engine codes” and “DTC codes” refer to the same thing (SAE J2012/ISO 15031-6) to prevent partner confusion.Clarify terminology — 
+The front-end shows DTC codes as notifications/alerts with a “Mark as read” button. Consider whether DTC alerts should also flow through the webhook system (Feature 2) as a vehicle.dtc.detected event.Alert integration — 
+🤖 Claude Code: Identify and expose the existing DTC data source
+Prompt: "Search the codebase for where DTC enrichment data is stored and served to the front-end. Look for: 1) the notification/alert that renders DTC descriptions, causes, and recommended actions in the live map UI, 2) the data source it reads from (database table, service, static file), 3) how the front-end maps a raw DTC code like P1094 to its full description, causes list, and recommended actions. Then modify the external API's DTC endpoint to use the same data source. Flatten the response from array-of-arrays to a single array and add all enrichment fields."
+🤖 Claude Code: Add DTC webhook event
+Prompt: "After the webhook system (Feature 2) is built, add a vehicle.dtc.detected event type. When a new DTC code is detected on a vehicle, dispatch a webhook with the full enriched DTC data (code, description, severity, causes, recommended action, location). This matches the front-end behaviour where DTC codes appear as notifications in the alert panel."
+2. Webhooks for Vehicle Events
+Open questions: What vehicle events should we support? Should webhook setup be API-only or also available in the front-end?
+Recommended Event Set
+Start with these 5 core events based on what the alert system already tracks and common fleet management needs:
+Engine state changes. Useful for trip start/end detection and work-hour tracking.vehicle.engine.enabled / vehicle.engine.disabled — 
+Boundary crossings. Core for delivery/logistics.vehicle.geofence.enter / vehicle.geofence.exit — 
+Speed threshold exceeded. Safety and compliance use cases.vehicle.overspeed — 
+Battery health alert. Prevents roadside breakdowns.vehicle.battery.low — 
+Device went offline/came back online. Detects tampering or signal issues.vehicle.disconnect / vehicle.reconnect — 
+API Design: Webhook Management CRUD
+Expose full CRUD for webhook subscriptions:
+POST   /api/webhooks              - Create a new webhook subscription
+GET    /api/webhooks              - List all subscriptions for the company
+GET    /api/webhooks/{id}         - Get a specific subscription
+PUT    /api/webhooks/{id}         - Update subscription (URL, events)
+DELETE /api/webhooks/{id}         - Delete a subscription
+POST   /api/webhooks/{id}/test    - Send a test ping to verify the endpoint
+Create Webhook Request
+POST /api/webhooks
+{
+  "url": "https://partner.example.com/hooks/telemax",
+  "events": ["vehicle.engine.enabled", "vehicle.engine.disabled", "vehicle.overspeed"],
+  "secret": "whsec_partner_generated_secret_key",
+  "companyId": 85
+}
+Webhook Delivery Payload
+POST https://partner.example.com/hooks/telemax
+Headers:
+  Content-Type: application/json
+  X-Telemax-Signature: sha256=a1b2c3d4e5...
+  X-Telemax-Event: vehicle.engine.enabled
+  X-Telemax-Delivery-Id: evt_7f3a2b1c
+
+Body:
+{
+  "id": "evt_7f3a2b1c",
+  "event": "vehicle.engine.enabled",
+  "timestamp": "2026-04-14T10:30:00Z",
+  "companyId": 85,
+  "vehicle": {
+    "id": 42,
+    "name": "Fleet Van 07",
+    "vin": "1HGCM82633A004352"
+  },
+  "data": {
+    "latitude": -27.4698,
+    "longitude": 153.0251,
+    "address": "123 Queen St, Brisbane QLD 4000",
+    "speed": 0
+  }
+}
+Security: Signature Verification
+Every webhook delivery must include an HMAC-SHA256 signature in the X-Telemax-Signature header, computed using the partner’s secret. Document verification code in C#, Python, and Node.js.
+Delivery Behaviour
+Partner must respond with 2xx within 10 seconds. Non-2xx or timeout triggers retry.Timeout — 
+Exponential backoff: 30s, 2m, 15m, 1h, 6h. Max 5 retries over 24 hours.Retry policy — 
+Each delivery has a unique id field. Partners should track processed IDs to handle duplicate deliveries.Idempotency — 
+Events may arrive out of order. Partners should use the timestamp field to determine freshness, not delivery order.Ordering — 
+API vs. Front-End Setup
+Support both. The API provides full CRUD (above). The dashboard offers the same functionality with a UI. Internally they use the same backend service — one source of truth, two interfaces. The front-end webhook feature you already have should use the same data model, so partners can manage webhooks in either place.
+Database Schema
+Table: webhook_subscriptions
+  id              INT PRIMARY KEY
+  company_id      INT FK -> companies
+  url             VARCHAR(2048)
+  secret_hash     VARCHAR(256)      -- store hashed, not plaintext
+  events          JSON              -- array of event type strings
+  is_active       BIT
+  created_at      DATETIME
+  updated_at      DATETIME
+
+Table: webhook_deliveries (for retry tracking)
+  id              INT PRIMARY KEY
+  subscription_id INT FK -> webhook_subscriptions
+  event_id        VARCHAR(50)       -- unique delivery ID
+  event_type      VARCHAR(100)
+  payload         JSON
+  status          VARCHAR(20)       -- pending/delivered/failed
+  attempts        INT
+  next_retry_at   DATETIME NULL
+  delivered_at    DATETIME NULL
+  created_at      DATETIME
+🤖 Claude Code: Scaffold the full webhook system
+Prompt: "Create a complete webhook system for the Telemax API: 1) WebhookSubscription and WebhookDelivery entity classes and EF Core configurations, 2) A WebhooksController with CRUD endpoints (create, list, get, update, delete, test), 3) A WebhookDispatchService that receives vehicle events, matches them to subscriptions, computes HMAC-SHA256 signatures, and dispatches HTTP POST requests, 4) A WebhookRetryBackgroundService that retries failed deliveries with exponential backoff. Include unit tests for the signature computation and retry logic."
+🤖 Claude Code: Generate webhook signature verification examples
+Prompt: "Write webhook signature verification code examples in three languages (C#, Python, Node.js). Each example should: receive the raw request body and the X-Telemax-Signature header, compute HMAC-SHA256 using the webhook secret, and compare signatures using a timing-safe comparison. Include error handling and a complete working sample that can be dropped into a project."
+3. VIN Lookup Capability
+Open questions: New endpoint? Should lookups be scoped to the company’s own vehicles?
+Answer: Strongly recommend scoping to company vehicles only. Allowing cross-company lookups creates a data leakage risk where one customer could enumerate another’s fleet. This is a security concern and a potential privacy issue under Australian Privacy Principles.
+Endpoint Design
+Combine VIN lookup with the vehicle details endpoint (see Feature 5). A single vehicle metadata endpoint that accepts multiple lookup keys:
+POST /api/GetVehicleDetails
+Query params (at least one required):
+  id    = 85          -- vehicle ID
+  vin   = 1HGCM82633A004352  -- VIN
+  imei  = 352656100359446     -- device IMEI
+
+Scoping: Returns results ONLY for vehicles belonging
+to the authenticated company. Returns 404 if the
+vehicle exists but belongs to a different company.
+(Do NOT return 403 -- that leaks the vehicle's existence.)
+Response Schema
+{
+  "vehicleId": 85,
+  "vehicleName": "Fleet Van 07",
+  "vin": "1HGCM82633A004352",
+  "imei": "352656100359446",
+  "rego": "ABC123",
+  "make": "Toyota",
+  "model": "HiAce",
+  "year": 2023,
+  "fuelTankCapacity": 70.0,
+  "companyId": 12,
+  "companyName": "Acme Logistics"
+}
+Security Considerations
+for vehicles outside the company’s scope. A 403 reveals the vehicle exists in another company’s fleet.Always return 404 (not 403) — 
+to prevent VIN enumeration attempts. Suggest 30 requests/minute.Rate limit this endpoint — 
+Log all VIN lookup attempts for security review.Audit logging — 
+🤖 Claude Code: Build the vehicle details/VIN lookup endpoint
+Prompt: "Create a GetVehicleDetails controller action that accepts optional query parameters id (int), vin (string), and imei (string). At least one must be provided. Query the vehicles table using whichever parameter was supplied, filtered to the authenticated user's company. Return 400 if no parameter provided, 404 if not found within the company (even if it exists in another company). Return the full vehicle metadata including rego, make, model, year, VIN, IMEI, and fuel tank capacity. Add unit tests covering: lookup by each key type, cross-company rejection (404 not 403), and missing parameter validation."
+4. Fuel Level: Percentage and Litres
+Open questions: Include in position endpoints? How to add volumetric data?
+What to implement
+Add FuelLevelVolume (litres) alongside the existing FuelLevel (percentage) in all position data responses:
+Affected endpoints:
+  - GetLastPositionData
+  - GetAllLastPositionData
+  - GetReplay / GetReplayUserTime
+  - GetPositionData
+
+New fields in position response:
+  "fuelLevel": 72.5,           // existing - percentage (0-100)
+  "fuelLevelVolume": 50.75,    // NEW - litres, nullable
+  "fuelTankCapacity": 70.0     // optional - from vehicle details
+Implementation Details
+The volumetric fuel reading from the device. Null for vehicles without volumetric sensors.FuelLevelVolume (float, nullable, litres) — 
+Don’t rename or change its semantics. Existing integrations depend on it.Keep FuelLevel as-is — 
+Return null (not 0) when the vehicle doesn’t have a volumetric fuel sensor. Zero means the tank is empty; null means the data isn’t available.Null vs. zero — 
+Add this to the vehicle details endpoint (Feature 5) so partners can calculate percentage from litres or vice versa.FuelTankCapacity — 
+Add a FuelLevelVolume nullable float column to the position data table. Backfill isn’t needed — historical records will just have null.Database — 
+OpenAPI Schema Update
+FuelLevel:
+  type: number
+  format: float
+  nullable: true
+  description: "Fuel remaining as percentage (0-100)"
+  x-unit: "%"
+
+FuelLevelVolume:
+  type: number
+  format: float
+  nullable: true
+  description: "Fuel remaining in litres. Null if vehicle lacks volumetric sensor."
+  x-unit: "litres"
+🤖 Claude Code: Add fuel volume to all position endpoints
+Prompt: "Read all controller actions that return position data (GetLastPositionData, GetAllLastPositionData, GetReplay, GetReplayUserTime, GetPositionData). Add a FuelLevelVolume nullable float property to the position DTO. Map it from the data source. Update every endpoint that returns position data to include this field. Then update openapi.yaml with the new field on every affected response schema. Generate a database migration to add the FuelLevelVolume column to the position data table as a nullable float."
+5. Vehicle Details: Rego, Make, Model, Year
+Open questions: Embed in position data or separate endpoint? Payload bloat for large fleets?
+Answer: Separate endpoint. Adding static metadata (rego, make, model, year) to every position response would bloat payloads significantly, especially for fleet-wide polling on large companies. These fields rarely change, so repeating them in every real-time call is wasteful. Partners should cache vehicle details and join client-side.
+Endpoint Design: Two Variants
+Individual vehicle lookup (combined with VIN lookup from Feature 3):
+POST /api/GetVehicleDetails?id=85
+POST /api/GetVehicleDetails?vin=1HGCM82633A004352
+POST /api/GetVehicleDetails?imei=352656100359446
+
+Response: single vehicle metadata object (see Feature 3)
+Company-wide listing with pagination:
+POST /api/GetAllVehicleDetails?compId=12&page=1&pageSize=50
+
+Response:
+{
+  "data": [
+    {
+      "vehicleId": 85,
+      "vehicleName": "Fleet Van 07",
+      "vin": "1HGCM82633A004352",
+      "imei": "352656100359446",
+      "rego": "ABC123",
+      "make": "Toyota",
+      "model": "HiAce",
+      "year": 2023,
+      "fuelTankCapacity": 70.0
+    },
+    ...
+  ],
+  "pagination": {
+    "page": 1,
+    "pageSize": 50,
+    "totalCount": 342,
+    "totalPages": 7
+  }
+}
+Why This Approach
+GetAllLastPositionData for a 500-vehicle fleet returns position data only (fast, small payload).Position payloads stay lean — 
+Call GetAllVehicleDetails once on startup (or daily), cache locally, join with position data by vehicleId. Standard pattern.Partners cache details — 
+Companies like Karmo with hundreds of devices won’t hit payload limits.Pagination handles large fleets — 
+Database Considerations
+rego (VARCHAR), make (VARCHAR), model (VARCHAR), year (INT), fuel_tank_capacity (FLOAT nullable). These may already exist in the DB but not be exposed via the API.New columns on vehicles table — 
+Create a migration to add them. Backfill from existing data sources or mark as nullable for manual entry later.If columns don’t exist — 
+🤖 Claude Code: Build the full vehicle details system
+Prompt: "Create two new controller actions: 1) GetVehicleDetails - accepts optional id, vin, or imei query params, returns single vehicle metadata (rego, make, model, year, VIN, IMEI, fuelTankCapacity) scoped to the authenticated company. 2) GetAllVehicleDetails - accepts compId, page (default 1), pageSize (default 50, max 200), returns paginated vehicle metadata list. Create the VehicleDetailsDto, add rego/make/model/year/fuelTankCapacity columns to the vehicle entity, generate an EF Core migration, and update openapi.yaml with both new endpoints. Include unit tests for pagination edge cases (empty page, last page, oversized pageSize)."
+API Bugs & Inconsistencies to Fix
+The plain-English reference surfaced several API-level issues that should be addressed alongside the documentation and feature work. These are quick wins that improve the API’s reliability and developer experience.
+SetAlertAsRead: isRead Parameter Is a No-Op
+The isRead parameter on POST /api/SetAlertAsRead “is accepted but currently has no effect on the outcome — the alert is always marked as read.” This should be fixed or the parameter should be removed.
+Make isRead functional so alerts can be marked as unread (isRead=false). This is useful for partners who want to “snooze” alerts.Option A (fix): 
+Remove the isRead parameter entirely and rename the endpoint to MarkAlertAsRead to be unambiguous. Simpler, but a breaking change for anyone passing the parameter.Option B (remove): 
+Document the current behaviour clearly until the fix ships.Either way: 
+🤖 Claude Code: Fix the isRead parameter
+Prompt: "Read the SetAlertAsRead controller action and the underlying data access code. The isRead parameter is currently ignored — alerts are always marked as read regardless of its value. Fix this so that isRead=true marks as read and isRead=false marks as unread. Add unit tests for both cases."
+Engine Disable Command: Missing Safety Warning
+The plain-English reference includes a critical warning: “Disabling a vehicle’s engine while moving is dangerous.” This warning is absent from the official docs. More importantly, the API itself should enforce safety:
+Both the endpoint page and the OpenAPI spec description should include this warning prominently.Add a warning to the official docs — 
+Before executing an engine disable command, check the vehicle’s last known speed. If the vehicle is moving (speed > 0), either reject the command with a 422 error and a clear message, or require an additional force=true parameter to confirm intent.Consider a speed check — 
+Log all engine disable/enable commands with the requesting user, vehicle ID, vehicle speed at time of command, and timestamp. This creates an accountability trail.Audit logging — 
+🤖 Claude Code: Add engine disable safety checks
+Prompt: "Read the SendIgnition controller action (engine disable/enable). Add a safety check: before executing an engine disable command (isOn=false), query the vehicle's last known speed. If speed > 5 km/h, reject the command with a 422 response: { type: 'SAFETY', code: 'VEHICLE_IN_MOTION', description: 'Cannot disable engine while vehicle is moving at {speed} km/h. Use force=true to override.' }. Add a force query parameter (default false) that bypasses the check. Log all engine disable/enable commands with speed data regardless. Add tests for: moving vehicle rejection, force override, and stationary vehicle success."
+Response Structure Inconsistencies
+The plain-English reference reveals several structural inconsistencies across the API:
+The DTC endpoint returns [[{code}], [{code}]] instead of a flat array [{code}, {code}]. This should be flattened in the new enriched version (see Feature 1).DTC response is array-of-arrays — 
+Most endpoints return data directly with no wrapper. Battery health is the exception (uses items/totalResults/currentPage). Standardise: either all endpoints use an envelope or none do. Recommendation: add envelopes to paginated endpoints only, keep single-object responses unwrapped.No response envelope — 
+The plain-English reference notes that “multi-company accounts can only access the first company” and calls this a known limitation. Document this explicitly in the official docs and prioritise the fix.Multi-company limitation — 
+Claude Code: Team Briefing
+Claude Code is a command-line AI coding tool that reads your codebase, writes code, runs tests, and updates documentation. Every developer on the team should have it installed and use it throughout this project. Here’s what you need to know.
+Setup (2 minutes)
+npm install -g @anthropic-ai/claude-code
+cd /path/to/telemax-api
+claude
+Claude Code runs in your terminal inside the project directory. It can read every file, understand the codebase structure, and make changes directly. It works best when you give it specific, concrete prompts referencing this document.
+How to Use It on This Project
+For each task in the timeline, the developer should follow this pattern:
+“Read the DTC codes controller and the data access layer. Summarise how DTC codes are currently fetched and returned.”Start by asking Claude Code to read the relevant code: 
+“Based on the proposed response schema in the API review document, modify the DTC endpoint to return enriched codes. Wire it into the same data source the front-end uses.”Then ask it to implement: 
+“Write xUnit tests for the enriched DTC endpoint covering: valid vehicle with codes, vehicle with no codes, unknown vehicle (404), cross-company rejection, and manufacturer-specific codes with null enrichment.”Then ask it to test: 
+“Update openapi.yaml with the new DTC response schema including all field descriptions and types.”Then ask it to document: 
+Testing the API with Claude Code
+Claude Code can generate and run API tests directly from the terminal. Use it for:
+Ask Claude Code to write xUnit tests for each controller action, service, and middleware. It will match your existing test patterns and conventions.Unit tests — 
+Ask it to create integration tests that call the actual API endpoints using HttpClient/WebApplicationFactory, verifying response codes, JSON structure, and field values.Integration tests — 
+Prompt: “Read the GetVehicleDetails controller. Write tests for: missing parameters (400), vehicle not in company (404), expired token (401), valid lookup by VIN, valid lookup by IMEI, and pagination on the company-wide endpoint.”Edge case coverage — 
+Before modifying existing endpoints (e.g., adding FuelLevelVolume to position data), ask Claude Code to write tests against the current response shape first, then verify backward compatibility after the change.Regression tests — 
+Claude Code can run dotnet test directly and interpret failures: “Run the test suite. If any tests fail, read the failure output and fix the code.”Running tests — 
+Key Rules
+It’s fast but not infallible. Review the generated code before committing.Always review what Claude Code produces — 
+Reference the specific endpoint designs, response schemas, and implementation notes from Parts A and B.Give it context from this document — 
+Boilerplate DTOs, migration scripts, OpenAPI entries, test scaffolding. This frees developers to focus on the logic.Use it for the boring stuff — 
+The teal-highlighted prompt boxes throughout this document are ready to copy and paste into Claude Code.Each feature has Claude Code prompts — 
+Phase 2 — Future Enhancements
+The following improvements are not included in the 24 April sprint but should be scheduled as a follow-up phase. Each one moves the Telemax API closer to a best-in-class developer experience.
+1. Rate Limiting with Clear Headers
+The current API has no visible rate limiting or feedback to developers about their usage. Adding standard rate limit headers lets integrators build resilient applications without guessing.
+X-RateLimit-Limit (max requests per window), X-RateLimit-Remaining (requests left), X-RateLimit-Reset (UTC epoch when the window resets).Add response headers to every endpoint — 
+with a Retry-After header (seconds until the client can retry). Include a clear JSON error body explaining the limit.Return 429 Too Many Requests — 
+Different customers may need different rate tiers. Store limits per API key and return the correct values per caller.Scope limits per API key — 
+🤖 Claude Code: Add Rate Limit Headers
+Add ASP.NET Core rate limiting middleware using the built-in RateLimiter. Configure a sliding window policy per API key. Add X-RateLimit-Limit, X-RateLimit-Remaining, and X-RateLimit-Reset headers to every response. Return 429 with Retry-After when exceeded.
+2. Auto-Generated SDK / Client Library
+Developers currently hand-roll HTTP calls against the API. An auto-generated client library eliminates boilerplate and reduces integration time from days to hours.
+Use NSwag (for C#/.NET) or openapi-generator (for JavaScript, Python, Java) to auto-generate typed client libraries directly from openapi.yaml.Generate from the OpenAPI spec — 
+NuGet for .NET, npm for JavaScript, PyPI for Python. Even covering just one or two languages would help most customers.Publish to package registries — 
+Each API release generates a new SDK version. Breaking changes bump the major version.Version the SDK alongside the API — 
+🤖 Claude Code: Generate SDK
+Read our openapi.yaml and generate a TypeScript client using openapi-generator-cli. Output to /sdk/typescript/. Include typed request/response interfaces, error handling, and automatic token refresh.
+3. Idempotency Keys for Commands
+Commands like Engine Disable and Enable have real-world consequences. Network failures can leave developers unsure if a command was received. Idempotency keys solve this.
+On all command endpoints (SendIgnitionCommand, SetAlertAsRead). If the same key is sent twice within a 24-hour window, return the original response without executing the command again.Accept an Idempotency-Key header — 
+A simple key-value store (Redis or database table) mapping idempotency keys to response payloads. Auto-expire after 24 hours.Store keys server-side — 
+A developer retrying a failed engine disable request must not accidentally send the command twice. This is a safety feature as much as a convenience one.Critical for engine commands — 
+🤖 Claude Code: Implement Idempotency
+Create an IdempotencyMiddleware that intercepts POST requests with an Idempotency-Key header. Store the key and response in Redis with a 24h TTL. If the same key is seen again, return the cached response with a 200 and an X-Idempotent-Replay: true header.
+4. Batch Endpoints
+Fleet customers often manage hundreds of vehicles. Fetching data one vehicle at a time creates unnecessary round trips and latency.
+Accept an array of vehicle IDs (up to 100) and return all positions in a single response. Far more efficient than looping through GetLastPositionData.POST /api/vehicles/batch/positions — 
+Same pattern for vehicle details. Reduces N+1 API calls to one.POST /api/vehicles/batch/details — 
+If some vehicle IDs are invalid or the caller lacks access, return data for the valid ones and include an errors array listing the failed IDs with reasons.Partial success handling — 
+🤖 Claude Code: Build Batch Endpoint
+Create a BatchPositionsController with a POST endpoint accepting { vehicleIds: string[] } (max 100). Query all positions in a single DB call using WHERE VehicleId IN (...). Return successful results plus a separate errors array for any IDs that were not found or not authorised.
+5. Field Filtering (Sparse Responses)
+Position endpoints return every field whether the developer needs them or not. For high-frequency polling across large fleets, payload size adds up fast.
+e.g. ?fields=lat,lng,speed,ignition. Only return the requested fields plus the vehicle identifier.Add a fields query parameter — 
+If no fields parameter is provided, return the complete response for backward compatibility.Default to full response — 
+List all filterable fields in the OpenAPI spec with descriptions, so developers know exactly what they can request.Document available fields — 
+🤖 Claude Code: Implement Field Filtering
+Add a fields query parameter to GetLastPositionData and GetAllLastPositionData. Parse the comma-separated list, validate against allowed field names, and use System.Text.Json to dynamically serialize only the requested properties. Return 422 if an unknown field is requested.
+6. API Versioning Strategy
+The current API has no version prefix in its URLs. This makes it impossible to introduce breaking changes without disrupting existing integrations.
+Redirect un-versioned paths to /v1/ for backward compatibility. New breaking changes go into /v2/ when the time comes.Add /v1/ prefix to all endpoints — 
+Already planned in the Phase 1 sprint. The URL prefix is the primary versioning mechanism; the header provides additional flexibility.Use the X-API-Version header as a complement — 
+Commit to at least 6 months notice before retiring any API version. Notify customers via email and a Sunset response header on deprecated endpoints.Publish a deprecation policy — 
+🤖 Claude Code: Add API Versioning
+Install Asp.Versioning.Http. Configure URL segment versioning with a /v1/ prefix. Map all existing controllers to v1. Add a Sunset header to any deprecated endpoints. Create a migration guide template for future version bumps.
+7. Health and Status Endpoint
+Developers need a simple way to check if the API is operational. A health endpoint gives them something to monitor and point to when debugging connectivity issues.
+Returns overall system status (healthy/degraded/unhealthy) plus individual service checks: database connectivity, auth service, webhook delivery queue.GET /health — 
+Health checks should be accessible without a token so monitoring tools can hit them without credential management.No authentication required — 
+Report the latency of each health check so developers can spot slow dependencies before they become outages.Include response time metadata — 
+🤖 Claude Code: Add Health Endpoint
+Use ASP.NET Core’s built-in health check framework. Add checks for: SQL Server connectivity, Redis (if used), webhook background service status. Map to GET /health with no auth. Return { status, checks: [{ name, status, duration_ms }] }.
+8. Cursor-Based Pagination
+The Phase 1 sprint adds offset-based pagination (page/pageSize), which is a good start. For real-time telemetry data where records are constantly being added, cursor-based pagination is more reliable.
+Base64-encode the last record’s sort key (e.g. timestamp + ID). Clients pass this as a ?cursor parameter to get the next page.Use an opaque cursor instead of page numbers — 
+With offset pagination, new records arriving between page requests can shift the result set. Cursors are immune to this because they anchor to a specific position in the data.Prevents skipping or duplicating records — 
+Keep offset pagination as the default. Add cursor support as an alternative parameter. Document both approaches.Phase this in after offset pagination is stable — 
+🤖 Claude Code: Add Cursor Pagination
+Add an optional cursor query parameter to GetAlerts and GetAllLastPositionData. The cursor is a Base64-encoded JSON object containing the last record’s timestamp and ID. When present, use WHERE (Timestamp, Id) > (@lastTs, @lastId) ORDER BY Timestamp, Id instead of OFFSET/FETCH. Return a nextCursor field in the response metadata.
+Project Timeline
+Deadline: Friday 24 April 2026 — all features implemented, tested, and documentation updated. 8 working days from today (14 April). Difficulty rating: 5/10 — comfortably achievable with proper parallel workstreams.
+Team
+Lead backend. Handles core infrastructure (error middleware, rate limiting, pagination) and the webhook system.BE1 (Backend Developer 1) — 
+Second backend. Handles DTC enrichment, vehicle details/VIN lookup, fuel data endpoints, and API versioning.BE2 (Backend Developer 2) — 
+Documentation site updates, OpenAPI spec maintenance, webhook dashboard UI, and use-case guides.FE (Front-End Developer) — 
+Integration testing, regression testing, and sign-off on each feature as it’s delivered.QA (Tester) — 
+Week 1
+Day 1 — Wednesday 15 April: Foundation
+Day 2 — Thursday 16 April: Core Endpoints
+Day 3 — Friday 17 April: Fuel Data + Safety Fixes
+Day 4 — Monday 20 April: Catch-Up + QA Buffer
+This day is intentionally lighter on new feature work. It gives QA time to catch up on testing Days 1–3 features thoroughly and gives developers time to address any issues found.
+Week 2
+Day 5 — Tuesday 21 April: Webhooks — Core Build
+Day 6 — Wednesday 22 April: Webhooks — Delivery + Retry
+Day 7 — Thursday 23 April: Full Regression + Polish
+Day 8 — Friday 24 April: Deploy + Release
+Critical Path & Risks
+2 days of focused backend work (Days 5–6) with both BE1 and BE2 working on it. Having two developers on webhooks simultaneously de-risks the build significantly compared to a single-developer approach.Webhooks remain the largest feature — 
+If the data source is hard to locate or isn’t in a reusable format, BE2 may need an extra half day. Buffer is available on Day 4.DTC enrichment depends on finding the front-end data source — 
+Deliberately scheduled as a catch-up day. If Days 1–3 go smoothly, developers can start prepping for webhooks early. If issues arise, this day absorbs them without pushing the deadline.Day 4 is the safety valve — 
+Adding FuelLevelVolume and enriching DTC responses must not break existing integrations. QA runs regression before and after changes, with a dedicated regression day (Day 7) before deploy.Backward compatibility is critical — 
+The 8-day schedule provides a full buffer day (Day 4), a dedicated regression day (Day 7), and a clean deploy day (Day 8). This is a realistic, professional schedule rather than a sprint-to-the-wire.The 24 April deadline is comfortably achievable — 
+Feature Delivery Summary
+# | Issue | Priority | Impact | Summary
+1 | No error response documentation | High | DX | Endpoints only show 200 responses. No 401, 403, 404, or 429 examples.
+2 | Missing rate limit & pagination info | High | Ops | No guidance on max page sizes, throttling, or retry-after headers.
+3 | Response field types & units unclear | High | DX | Speed, odometer, fuel: no units specified. DrivingTime: seconds or ms?
+4 | No webhook guide (only YAML) | High | Integration | webhooks.yaml exists but no human-readable setup, events, or retry docs.
+5 | All-POST design unexplained | Medium | DX | Read operations use POST with query params. No architectural note.
+6 | Inconsistent endpoint naming | Medium | DX | Mix of verb styles and sentence-case names across endpoints.
+7 | Token lifecycle underspecified | Medium | Security | 3600s expiry noted, but no refresh, caching, or rotation guidance.
+8 | Internal endpoint publicly listed | Medium | Security | rebuild-redis-movement-cache is visible in public API reference.
+9 | No use-case guides | Low | Adoption | No intermediate guides for fleet tracking, trip replay, or alert flows.
+10 | No versioning or changelog | Low | Trust | No API version, deprecation policy, or change history for partners.
+Field | Type | Unit | Nullable | Description
+Speed | float | km/h — Current vehicle speed
+Odometer | float | km — Total distance travelled
+FuelLevel | float | % (0–100) — Fuel remaining as percentage
+DrivingTime | int | seconds — Time since engine enabled
+Voltage | float | volts — Vehicle battery voltage
+Latitude | float | degrees — WGS84 latitude coordinate
+Longitude | float | degrees — WGS84 longitude coordinate
+Current Name | Proposed Name
+Gets the list of companies under a user/API key | List Companies | 
+Gets the list of vehicles for the user | List Vehicles | 
+Get last position data for vehicle | Get Vehicle Position | 
+Get last position data for all vehicles | Get Fleet Positions | 
+Last online heartbeat for all vehicles in company | Get Fleet Heartbeat | 
+Get replay points (user time) | Get Trip Replay | 
+Get nearest vehicles from point | Get Nearby Vehicles | 
+Send ignition on/off command | Send Engine Disable/Enable Command | 
+Resolve IMEI to vehicle id and name | Resolve IMEI | 
+Feature | Key Open Question | Recommendation
+Engine / DTC Codes | New endpoint or extend existing? | Extend existing GET /devices/{id}/dtc-codes. Expose the same enrichment data the front-end already displays.
+Webhooks | What events? API-only or frontend too? | Both. API CRUD + dashboard UI. Start with 5 core events.
+VIN Lookup | New endpoint? Scope to company only? | Company-scoped only. Combine with vehicle details endpoint.
+Fuel Level Data | Include in position data? Litres? | Add FuelLevelVolume (litres) to all position endpoints. Nullable.
+Vehicle Details | Embed in position or separate? | Separate endpoint with individual + company-wide (paginated) variants.
+Who | Task | Est. | Depends On
+BE1 | Build global error middleware (ApiError model, exception handler, standardised error JSON structure) | Half day
+BE1 | Add rate limiting middleware + X-RateLimit headers to pipeline | Half day
+BE2 | Identify front-end DTC data source. Wire same source into external API DTC endpoint. Flatten response. | Full day
+FE | Fix OpenAPI spec: correct token expiry (86,399s), add field types/units/descriptions to all response schemas | Full day
+QA | Set up integration test framework (WebApplicationFactory). Write auth tests (valid token, expired, malformed). | Full day
+Who | Task | Est. | Depends On
+BE1 | Add pagination to GetAlerts + GetAllLastPositionData (page/pageSize params, PaginationMeta response) | Full day
+BE2 | Build GetVehicleDetails endpoint (individual lookup by ID/VIN/IMEI, company-scoped, 404 for cross-company) | Half day
+BE2 | Build GetAllVehicleDetails endpoint (company-wide, paginated). DB migration for rego/make/model/year columns. | Half day
+FE | Rename all endpoints in OpenAPI spec to consistent verb-noun pattern. Add error response schemas (401/403/404/422/429). | Half day
+FE | Create “Known Issues & Legacy Fields” doc page. Add POST-only architecture note to introduction. | Half day
+QA | Test error middleware (all error codes return correct JSON structure). Test DTC enrichment endpoint. | Full day
+Who | Task | Est. | Depends On
+BE1 | Add FuelLevelVolume to all position endpoints. DB migration. Update DTOs. Null handling. | Half day
+BE1 | Add engine disable safety check (speed validation, force override, audit logging). | Half day
+BE2 | Fix SetAlertAsRead isRead no-op. Add X-API-Version header middleware. Remove Redis cache endpoint from public spec. | Full day
+FE | Create Authentication Guide page. Create Changelog page (initial v1 entry). | Full day
+QA | Test vehicle details endpoints (lookup by each key, cross-company 404, pagination). Test fuel volume fields. | Full day
+Who | Task | Est. | Depends On
+BE1 | Fix any issues from QA on error middleware, pagination, fuel data. Code review on BE2’s work. | Full day
+BE2 | Fix any issues from QA. Code review on BE1’s work. Integration test pass on all endpoints so far. | Full day
+FE | Webhook documentation (pre-work): draft setup guide structure, event reference templates, signature verification examples (C#/Python/Node.js). | Full day
+QA | Full test pass on ALL features delivered Days 1–3. Test engine disable safety check. Test rate limit headers. Regression on existing endpoints. | Full day
+Who | Task | Est. | Depends On
+BE1 | Webhook system: subscription model, DB schema, CRUD controller (create/list/get/update/delete/test ping) | Full day
+BE2 | Webhook dispatch service: event matching, HMAC-SHA256 signature computation, async HTTP delivery. | Full day
+FE | Finalise webhook documentation with live endpoint details. Create use-case guide: Real-Time Fleet Tracking. | Full day
+QA | Write webhook test plan. Test subscription CRUD endpoints as BE1 delivers them. Verify Day 4 bug fixes. | Full day
+Who | Task | Est. | Depends On
+BE1 | Webhook retry background service (exponential backoff, max retries, dead letter handling). | Half day
+BE1 | vehicle.dtc.detected and vehicle.engine.disabled/enabled webhook event integration. | Half day
+BE2 | End-to-end integration tests on full webhook flow. Fix any issues. Support BE1 on retry logic if needed. | Full day
+FE | Create use-case guides: Trip Replay, Alert Monitoring. Final OpenAPI spec review for all new endpoints. | Full day
+QA | Full webhook testing: event delivery, signature verification, retry on failure, test ping, concurrent delivery. | Full day
+Who | Task | Est. | Depends On
+BE1 | Bug fixes from Day 6 webhook testing. Performance testing on paginated endpoints with large datasets (Karmo-scale). | Full day
+BE2 | Bug fixes from Day 6. Verify backward compatibility — all existing endpoints return same data shape as before. | Full day
+FE | Final documentation pass: verify every endpoint page has error responses, field types, units. Publish Postman collection. | Full day
+QA | Full regression suite on ALL endpoints (existing + new). Sign off on each feature individually. Document any remaining issues. | Full day
+Who | Task | Est. | Depends On
+BE1 | Deploy to staging environment. Run full smoke test suite. Fix any last issues. | Half day
+BE1 | Deploy to production. Monitor error rates and webhook delivery. | Half day
+BE2 | Deploy support. Post-deploy verification of all new endpoints against production. | Half day
+BE2 | Monitor backward compatibility — check existing partner integrations are unaffected. | Half day
+FE | Publish updated documentation site. Verify all pages render correctly. Announce changes to partners. | Full day
+QA | Post-deploy smoke test against production. Verify webhook delivery to a test endpoint. Final sign-off. | Half day
+Feature | Dev Start | Dev Done | QA Done | Owner
+Error middleware + rate limits | Day 1 | Day 1
+DTC enrichment | Day 1 | Day 1
+Field types/units/OpenAPI fixes | Day 1 | Day 2
+Vehicle details + VIN lookup | Day 2 | Day 2
+Pagination (alerts, fleet positions) | Day 2 | Day 2
+Fuel volume data | Day 3 | Day 3
+Engine disable safety check | Day 3 | Day 3
+SetAlertAsRead fix + versioning | Day 3 | Day 3
+Webhook system (full) | Day 5 | Day 6
+Documentation (all pages) | Day 1 | Day 6
+Full regression + sign-off | — | —
+Deploy + smoke test | — | Day 8
