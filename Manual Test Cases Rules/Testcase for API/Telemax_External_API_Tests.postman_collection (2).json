@@ -1,0 +1,2988 @@
+{
+  "info": {
+    "_postman_id": "telemax-api-test-collection-v1",
+    "name": "Telemax External API Tests",
+    "description": "Postman collection for Telemax API v1/v2 — 71 test cases across 8 modules (AUTH, DTC, WHK, VIN, POS, ALRT, ENG, GEN).\n\nAll TCs follow TESTCASE_RULES.md:\n- TC ID: ModuleName-NNN\n- Title: Verify [result] when [condition]\n- Status default: Not Run\n- Priority: High ≥30% per module\n\nBase URL: https://api.telemax.com.au | Auth: Bearer token (~86399s lifetime)\n\nIMPORTANT after import:\n1. Fill in collection variable 'password'\n2. Fill in deviceId, cleanDeviceId, movingDeviceId, otherCompanyDeviceId, testVin, testImei, alertId, webhookId, positionId\n3. Run AUTH-001 first to refresh the token\n4. The 'token' variable is pre-filled with the provided bearer token",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection-level Pre-request: Auto Token Refresh",
+          "const requestName = pm.info.requestName || '';",
+          "if (requestName === 'AUTH-001 – POST /api/token (valid credentials)') { return; }",
+          "const token = pm.collectionVariables.get('token');",
+          "const expiresAt = parseInt(pm.collectionVariables.get('tokenExpiresAt') || '0', 10);",
+          "const now = Math.floor(Date.now() / 1000);",
+          "const buffer = 300;",
+          "if (!token || now >= expiresAt - buffer) {",
+          "  const baseUrl = pm.collectionVariables.get('baseUrl');",
+          "  const email = pm.collectionVariables.get('email');",
+          "  const password = pm.collectionVariables.get('password');",
+          "  pm.sendRequest({",
+          "    url: baseUrl + '/api/token', method: 'POST',",
+          "    header: { 'Content-Type': 'application/json' },",
+          "    body: { mode: 'raw', raw: JSON.stringify({ email, password }) }",
+          "  }, (err, res) => {",
+          "    if (err) { console.error('[Auth] Refresh failed:', err); return; }",
+          "    const body = res.json();",
+          "    if (body && body.token) {",
+          "      pm.collectionVariables.set('token', body.token);",
+          "      pm.collectionVariables.set('tokenExpiresAt', String(now + (body.expires_in || 86399)));",
+          "      console.log('[Auth] Token refreshed. expires_in:', body.expires_in);",
+          "    }",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.telemax.com.au",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1lIjoiZGV2ZWxvcGVyQHRlbGVtYXguY29tLmF1IiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZWlkZW50aWZpZXIiOiIwMzVhMjNjOC0xODFhLTRiZWEtYWFkMS0wZjcwMjM3NzE0NjMiLCJzdWIiOiJkZXZlbG9wZXJAdGVsZW1heC5jb20uYXUiLCJlbWFpbCI6ImRldmVsb3BlckB0ZWxlbWF4LmNvbS5hdSIsImp0aSI6ImMzNzU0OGRhLTcwYTktNDU0MC1hZDk0LTk3ZDU3M2Y3YTUxZCIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6WyJMaXZlIE1hcCIsIlVzZXIgTWFuYWdlbWVudCIsIlJlcGxheSIsIlN1cGVyQWRtaW4iLCJCYXR0ZXJ5IFByZWRpY3Rpb24iLCJWaWV3IFpvbmVzIiwiVmVoaWNsZSBNYW5hZ2VtZW50IiwiUmVwb3J0cyIsIlJlbmV3YWwgUmVtaW5kZXJzIiwiQXBpIEtleXMgTWFuYWdlbWVudCIsIlNlcnZpY2UgUmVtaW5kZXJzIiwiU2NoZWR1bGVkIFJlcG9ydHMiLCJBbGVydCBNYW5hZ2VtZW50Il0sInNlbGVjdGVkQ29tcGFueSI6Ijk5NyIsImV4cCI6MTc3OTYwNTY3NywiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwIiwiYXVkIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwIn0.mlPmHL0yZQfAZRBpymiqP-3JSixsyBqi1vZ9idcldk4",
+      "type": "string"
+    },
+    {
+      "key": "tokenExpiresAt",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "developer@telemax.com.au",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "FILL_IN_PASSWORD",
+      "type": "string"
+    },
+    {
+      "key": "companyId",
+      "value": "997",
+      "type": "string"
+    },
+    {
+      "key": "deviceId",
+      "value": "FILL_IN_DEVICE_ID",
+      "type": "string"
+    },
+    {
+      "key": "cleanDeviceId",
+      "value": "FILL_IN_CLEAN_DEVICE_ID",
+      "type": "string"
+    },
+    {
+      "key": "movingDeviceId",
+      "value": "FILL_IN_MOVING_DEVICE_ID",
+      "type": "string"
+    },
+    {
+      "key": "otherCompanyDeviceId",
+      "value": "FILL_IN_OTHER_COMPANY_DEV",
+      "type": "string"
+    },
+    {
+      "key": "testVin",
+      "value": "FILL_IN_VIN",
+      "type": "string"
+    },
+    {
+      "key": "testImei",
+      "value": "FILL_IN_IMEI",
+      "type": "string"
+    },
+    {
+      "key": "alertId",
+      "value": "FILL_IN_ALERT_ID",
+      "type": "string"
+    },
+    {
+      "key": "webhookId",
+      "value": "FILL_IN_WEBHOOK_ID",
+      "type": "string"
+    },
+    {
+      "key": "positionId",
+      "value": "FILL_IN_POSITION_ID",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "AUTH – Authentication",
+      "item": [
+        {
+          "name": "AUTH-001 – POST /api/token (valid credentials)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-001: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('AUTH-001: Token field present', () => {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('token');",
+                  "  pm.expect(j.token).to.be.a('string').and.not.empty;",
+                  "  pm.collectionVariables.set('token', j.token);",
+                  "  pm.collectionVariables.set('tokenExpiresAt', String(Math.floor(Date.now()/1000)+(j.expires_in||86399)));",
+                  "});",
+                  "pm.test('AUTH-001: expires_in is approximately 86399 (not 3600)', () => {",
+                  "  pm.expect(pm.response.json().expires_in).to.be.within(86390, 86410);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "TC ID: AUTH-001 | Title: Verify token is returned when valid credentials are submitted\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "AUTH-002 – POST /api/token (wrong password)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-002: Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('AUTH-002: No token in body', () => pm.expect(pm.response.json()).to.not.have.property('token'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"WRONG_PASSWORD_12345\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "TC ID: AUTH-002 | Title: Verify 401 is returned when an incorrect password is submitted\nType: Negative | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "AUTH-003 – POST /api/token (email field missing)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-003: Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "token"
+              ],
+              "query": []
+            },
+            "description": "TC ID: AUTH-003 | Title: Verify 400 is returned when the email field is omitted from the token request\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "AUTH-004 – GET protected endpoint (no Authorization header)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-004: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices"
+              ],
+              "query": []
+            },
+            "description": "TC ID: AUTH-004 | Title: Verify 401 is returned when a protected endpoint is accessed without an Authorization header\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "AUTH-005 – GET protected endpoint (malformed token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-005: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer INVALID.TOKEN.VALUE"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices"
+              ]
+            },
+            "description": "TC ID: AUTH-005 | Title: Verify 401 is returned when a malformed Bearer token is supplied\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "AUTH-006 – GET protected endpoint (expired token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-006: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0IiwiZXhwIjoxNjAwMDAwMDAwfQ.EXPIREDSIG"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices"
+              ]
+            },
+            "description": "TC ID: AUTH-006 | Title: Verify 401 is returned when an expired token is used on a protected endpoint\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "AUTH-007 – GET internal rebuild cache endpoint (must not be publicly accessible)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-007: Status is not 200', () => pm.expect(pm.response.code).to.not.equal(200));",
+                  "pm.test('AUTH-007: Status is 401, 403, or 404', () => pm.expect(pm.response.code).to.be.oneOf([401,403,404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rebuild-vehicle-movement-cache",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rebuild-vehicle-movement-cache"
+              ],
+              "query": []
+            },
+            "description": "TC ID: AUTH-007 | Title: Verify the internal rebuild vehicle movement cache endpoint is not publicly accessible\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: 200 response = security vulnerability."
+          }
+        }
+      ]
+    },
+    {
+      "name": "DTC – Diagnostic Trouble Codes",
+      "item": [
+        {
+          "name": "DTC-001 – GET /api/v1/dtc (valid device)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-001: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('DTC-001: Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "pm.test('DTC-001: description populated (regression)', () => { const a=pm.response.json(); if(a.length>0) pm.expect(a[0].description).to.not.be.empty; });",
+                  "pm.test('DTC-001: severity populated (regression)', () => { const a=pm.response.json(); if(a.length>0) pm.expect(a[0].severity).to.not.be.undefined; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dtc?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dtc"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                }
+              ]
+            },
+            "description": "TC ID: DTC-001 | Title: Verify DTC list is returned when a valid device identifier is supplied\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: description and severity were previously unpopulated — regression guard."
+          }
+        },
+        {
+          "name": "DTC-002 – GET /api/v1/dtc (cross-company device returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-002: Status 404 (not 403)', () => pm.response.to.have.status(404));",
+                  "pm.test('DTC-002: Must NOT return 403', () => pm.expect(pm.response.code).to.not.equal(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dtc?deviceId={{otherCompanyDeviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dtc"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{otherCompanyDeviceId}}"
+                }
+              ]
+            },
+            "description": "TC ID: DTC-002 | Title: Verify 404 is returned when requesting DTCs for a device belonging to another company\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: Must be 404 NOT 403 — prevents company enumeration."
+          }
+        },
+        {
+          "name": "DTC-003 – GET /api/v1/dtc (missing deviceId parameter)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-003: Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dtc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dtc"
+              ],
+              "query": []
+            },
+            "description": "TC ID: DTC-003 | Title: Verify 400 is returned when the deviceId query parameter is omitted\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "DTC-004 – GET /api/v1/dtc (non-existent deviceId)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-004: Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dtc?deviceId=NON_EXISTENT_DEVICE_00000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dtc"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "NON_EXISTENT_DEVICE_00000"
+                }
+              ]
+            },
+            "description": "TC ID: DTC-004 | Title: Verify 404 is returned when the supplied device identifier does not exist\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "DTC-005 – GET /api/v1/dtc (device with no DTCs returns empty array)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-005: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('DTC-005: Empty array', () => pm.expect(pm.response.json()).to.be.an('array').with.lengthOf(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dtc?deviceId={{cleanDeviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dtc"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{cleanDeviceId}}"
+                }
+              ]
+            },
+            "description": "TC ID: DTC-005 | Title: Verify empty array is returned when device has no recorded diagnostic trouble codes\nType: Edge Case | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "DTC-006 – GET /api/v2/dtc (valid device, v2 endpoint)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-006: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('DTC-006: description populated (regression)', () => { const a=pm.response.json(); if(a.length>0) pm.expect(a[0].description).to.not.be.empty; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v2/dtc?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "dtc"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                }
+              ]
+            },
+            "description": "TC ID: DTC-006 | Title: Verify DTC list is returned from the version 2 endpoint when a valid device identifier is supplied\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v2"
+          }
+        },
+        {
+          "name": "DTC-007 – GET /api/v1/dtc (no auth returns 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-007: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dtc?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dtc"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                }
+              ]
+            },
+            "description": "TC ID: DTC-007 | Title: Verify 401 is returned when requesting diagnostic trouble codes without an Authorization header\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "DTC-008 – GET /api/v1/dtc (response time under 2000ms)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-008: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('DTC-008: Response time under 2000ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dtc?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dtc"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                }
+              ]
+            },
+            "description": "TC ID: DTC-008 | Title: Verify the DTC endpoint responds within 2000 milliseconds for a standard device request\nType: Performance | Priority: Low | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "DTC-009 – GET /api/v1/dtc (deviceId is empty string)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-009: Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dtc?deviceId=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dtc"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "TC ID: DTC-009 | Title: Verify 400 is returned when the deviceId parameter is present but empty\nType: Edge Case | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "DTC-010 – GET /api/v1/dtc (SQL injection in deviceId is rejected)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-010: Status is not 200 or 500', () => pm.expect(pm.response.code).to.not.be.oneOf([200,500]));",
+                  "pm.test('DTC-010: No stack trace leaked', () => pm.expect(pm.response.text()).to.not.include('stack'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dtc?deviceId=1' OR '1'='1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dtc"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "1' OR '1'='1"
+                }
+              ]
+            },
+            "description": "TC ID: DTC-010 | Title: Verify the API safely rejects a SQL injection attempt in the deviceId parameter\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "WHK – Webhooks",
+      "item": [
+        {
+          "name": "WHK-001 – GET /api/v1/webhooks (list all webhooks)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-001: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('WHK-001: Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "pm.test('WHK-001: Each item has id and url', () => { const a=pm.response.json(); if(a.length>0){ pm.expect(a[0]).to.have.property('id'); pm.expect(a[0]).to.have.property('url'); } });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-001 | Title: Verify all configured webhooks are returned when listing webhooks for the authenticated company\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-002 – POST /api/v1/webhooks (create webhook with valid payload)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-002: Status 200 or 201', () => pm.expect(pm.response.code).to.be.oneOf([200,201]));",
+                  "pm.test('WHK-002: Response has id', () => { const j=pm.response.json(); pm.expect(j).to.have.property('id'); pm.collectionVariables.set('webhookId', j.id); });",
+                  "pm.test('WHK-002: Response echoes url', () => pm.expect(pm.response.json().url).to.equal('https://webhook.site/test-telemax'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://webhook.site/test-telemax\",\n  \"events\": [\n    \"alert\",\n    \"dtc\"\n  ],\n  \"secret\": \"mysecret123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-002 | Title: Verify a new webhook is created when a valid URL and event list are supplied\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-003 – POST /api/v1/webhooks (missing url field returns 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-003: Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"events\": [\n    \"alert\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-003 | Title: Verify 400 is returned when the URL field is omitted from a webhook creation request\nType: Negative | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-004 – POST /api/v1/webhooks (invalid URL format returns 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-004: Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"not-a-valid-url\",\n  \"events\": [\n    \"alert\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-004 | Title: Verify 400 is returned when the webhook URL is not a valid HTTP or HTTPS address\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-005 – GET /api/v1/webhooks/{id} (get single webhook)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-005: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('WHK-005: id matches', () => pm.expect(String(pm.response.json().id)).to.equal(pm.collectionVariables.get('webhookId')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-005 | Title: Verify webhook details are returned when a valid webhook identifier is supplied\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-006 – POST /api/v1/webhooks (HMAC secret stored and signed delivery)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-006: Status 200 or 201', () => pm.expect(pm.response.code).to.be.oneOf([200,201]));",
+                  "pm.test('WHK-006: Response does not expose raw secret', () => { const j=pm.response.json(); pm.expect(j.secret||'').to.not.equal('supersecret_hmac_key'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://webhook.site/hmac-test\",\n  \"events\": [\n    \"alert\"\n  ],\n  \"secret\": \"supersecret_hmac_key\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-006 | Title: Verify webhook is created with HMAC secret and signature header is expected on delivery\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-007 – PUT /api/v1/webhooks/{id} (update webhook URL)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-007: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('WHK-007: Updated URL reflected', () => pm.expect(pm.response.json().url).to.equal('https://webhook.site/updated-url'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://webhook.site/updated-url\",\n  \"events\": [\n    \"alert\",\n    \"dtc\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-007 | Title: Verify webhook URL is updated when a valid update payload is submitted\nType: Functional | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-008 – DELETE /api/v1/webhooks/{id} (delete webhook)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-008: Status 200 or 204', () => pm.expect(pm.response.code).to.be.oneOf([200,204]));",
+                  "pm.test('WHK-008: Response is empty or confirms deletion', () => { const t=pm.response.text(); pm.expect(t.length).to.be.below(500); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-008 | Title: Verify webhook is deleted when a valid webhook identifier is supplied\nType: Functional | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-009 – GET /api/v1/webhooks/{id} (deleted webhook returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-009: Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-009 | Title: Verify 404 is returned when requesting details of a webhook that has been deleted\nType: Regression | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-010 – GET /api/v1/webhooks (no auth returns 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-010: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-010 | Title: Verify 401 is returned when listing webhooks without an Authorization header\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-011 – POST /api/v1/webhooks (empty events array returns 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-011: Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://webhook.site/test\",\n  \"events\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-011 | Title: Verify 400 is returned when the events array is empty in a webhook creation request\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-012 – POST /api/v1/webhooks (unknown event type returns 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-012: Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://webhook.site/test\",\n  \"events\": [\n    \"unknown_event_xyz\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-012 | Title: Verify 400 is returned when an unrecognized event type is included in the events array\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-013 – POST /api/v1/webhooks/test (trigger test delivery)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-013: Status 200 or 202', () => pm.expect(pm.response.code).to.be.oneOf([200,202]));",
+                  "pm.test('WHK-013: Delivery acknowledged', () => { const j=pm.response.json(); pm.expect(j).to.exist; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/{{webhookId}}/test",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "{{webhookId}}",
+                "test"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-013 | Title: Verify a test delivery is dispatched when the webhook test endpoint is triggered\nType: Functional | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-014 – GET /api/v1/webhooks (cross-company webhook not listed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-014: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('WHK-014: All items belong to own company', () => { const a=pm.response.json(); a.forEach(w => pm.expect(String(w.companyId||pm.collectionVariables.get('companyId'))).to.equal(pm.collectionVariables.get('companyId'))); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-014 | Title: Verify webhooks belonging to another company are not included in the authenticated company listing\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "WHK-015 – DELETE /api/v1/webhooks/{id} (non-existent id returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WHK-015: Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/NON_EXISTENT_WHK_ID_99999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "NON_EXISTENT_WHK_ID_99999"
+              ],
+              "query": []
+            },
+            "description": "TC ID: WHK-015 | Title: Verify 404 is returned when attempting to delete a webhook identifier that does not exist\nType: Negative | Priority: Low | Status: Not Run | Environment: API — REST v1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "VIN – Vehicle Identification Number Lookup",
+      "item": [
+        {
+          "name": "VIN-001 – GET /api/v1/vehicles/vin/{vin} (valid VIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-001: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('VIN-001: Response has vin field', () => pm.expect(pm.response.json()).to.have.property('vin'));",
+                  "pm.test('VIN-001: VIN matches requested', () => pm.expect(pm.response.json().vin).to.equal(pm.collectionVariables.get('testVin')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/vin/{{testVin}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "vin",
+                "{{testVin}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-001 | Title: Verify vehicle details are returned when a valid VIN is supplied\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "VIN-002 – GET /api/v1/vehicles/vin/{vin} (VIN from another company returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-002: Status 404 (not 403)', () => pm.response.to.have.status(404));",
+                  "pm.test('VIN-002: Must NOT return 403', () => pm.expect(pm.response.code).to.not.equal(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/vin/CROSS_COMPANY_VIN_000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "vin",
+                "CROSS_COMPANY_VIN_000"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-002 | Title: Verify 404 is returned when looking up a VIN belonging to another company\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: Must be 404 not 403 — prevents VIN enumeration across companies."
+          }
+        },
+        {
+          "name": "VIN-003 – GET /api/v1/vehicles/vin/{vin} (non-existent VIN returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-003: Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/vin/ZZZZZZZZZZZZZZZZ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "vin",
+                "ZZZZZZZZZZZZZZZZ"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-003 | Title: Verify 404 is returned when the requested VIN does not exist in the system\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "VIN-004 – GET /api/v1/vehicles/imei/{imei} (valid IMEI lookup)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-004: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('VIN-004: Response has deviceId or imei', () => { const j=pm.response.json(); pm.expect(j.imei||j.deviceId).to.exist; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/imei/{{testImei}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "imei",
+                "{{testImei}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-004 | Title: Verify vehicle details are returned when a valid IMEI is supplied\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "VIN-005 – GET /api/v1/vehicles/imei/{imei} (non-existent IMEI returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-005: Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/imei/000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "imei",
+                "000000000000000"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-005 | Title: Verify 404 is returned when the requested IMEI does not exist in the system\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "VIN-006 – GET /api/v1/vehicles/vin/{vin} (no auth returns 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-006: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/vin/{{testVin}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "vin",
+                "{{testVin}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-006 | Title: Verify 401 is returned when accessing the VIN lookup endpoint without an Authorization header\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "VIN-007 – GET /api/v1/vehicles/vin/{vin} (VIN with special characters returns 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-007: Status 400 or 404', () => pm.expect(pm.response.code).to.be.oneOf([400,404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/vin/VIN-WITH-SPECIAL!@#",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "vin",
+                "VIN-WITH-SPECIAL!@#"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-007 | Title: Verify 400 is returned when the VIN contains invalid special characters\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "VIN-008 – GET /api/v1/vehicles/vin/{vin} (response includes ConnectionStrengh field with original spelling)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-008: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('VIN-008: ConnectionStrengh field present (intentional misspelling)', () => { const j=pm.response.json(); pm.expect(j).to.have.property('ConnectionStrengh'); });",
+                  "pm.test('VIN-008: ConnectionStrength (corrected) must NOT exist', () => { const j=pm.response.json(); pm.expect(j).to.not.have.property('ConnectionStrength'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/vin/{{testVin}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "vin",
+                "{{testVin}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-008 | Title: Verify response includes the ConnectionStrengh field using the intentional original spelling\nType: Regression | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: ConnectionStrengh (missing 't') is intentional — must NOT be renamed to ConnectionStrength."
+          }
+        },
+        {
+          "name": "VIN-009 – GET /api/v1/vehicles/vin/{vin} (response includes UserTimeFormated field with original spelling)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-009: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('VIN-009: UserTimeFormated present (intentional spelling)', () => pm.expect(pm.response.json()).to.have.property('UserTimeFormated'));",
+                  "pm.test('VIN-009: UserTimeFormatted (corrected) must NOT exist', () => pm.expect(pm.response.json()).to.not.have.property('UserTimeFormatted'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/vin/{{testVin}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles",
+                "vin",
+                "{{testVin}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-009 | Title: Verify response includes the UserTimeFormated field using the intentional original spelling\nType: Regression | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: UserTimeFormated (single 't') is intentional — must NOT be renamed."
+          }
+        },
+        {
+          "name": "VIN-010 – GET /api/v1/vehicles (list all vehicles for company)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-010: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('VIN-010: Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "pm.test('VIN-010: Array not empty', () => pm.expect(pm.response.json().length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "vehicles"
+              ],
+              "query": []
+            },
+            "description": "TC ID: VIN-010 | Title: Verify all vehicles belonging to the authenticated company are returned\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "POS – Position and GPS Data",
+      "item": [
+        {
+          "name": "POS-001 – GET /api/v1/positions (valid device)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-001: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('POS-001: Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "pm.test('POS-001: Each position has lat and lng', () => { const a=pm.response.json(); if(a.length>0){ pm.expect(a[0]).to.have.property('lat'); pm.expect(a[0]).to.have.property('lng'); } });",
+                  "pm.test('POS-001: Result count does not exceed limit', () => pm.expect(pm.response.json().length).to.be.at.most(10));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/positions?deviceId={{deviceId}}&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "TC ID: POS-001 | Title: Verify position history is returned when a valid device identifier and limit are supplied\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "POS-002 – GET /api/v1/positions (device from another company returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-002: Status 404 (not 403)', () => pm.response.to.have.status(404));",
+                  "pm.test('POS-002: Must NOT return 403', () => pm.expect(pm.response.code).to.not.equal(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/positions?deviceId={{otherCompanyDeviceId}}&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{otherCompanyDeviceId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "TC ID: POS-002 | Title: Verify 404 is returned when requesting positions for a device belonging to another company\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: Must be 404 not 403."
+          }
+        },
+        {
+          "name": "POS-003 – GET /api/v1/positions (missing deviceId returns 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-003: Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/positions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "positions"
+              ],
+              "query": []
+            },
+            "description": "TC ID: POS-003 | Title: Verify 400 is returned when the deviceId query parameter is omitted from a position request\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "POS-004 – GET /api/v1/positions (date range filter)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-004: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('POS-004: Results within date range', () => {",
+                  "  const a=pm.response.json(); const from=new Date('2024-01-01T00:00:00Z'); const to=new Date('2024-01-02T00:00:00Z');",
+                  "  a.forEach(p => { if(p.timestamp){ const t=new Date(p.timestamp); pm.expect(t.getTime()).to.be.within(from.getTime(), to.getTime()); } });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/positions?deviceId={{deviceId}}&from=2024-01-01T00:00:00Z&to=2024-01-02T00:00:00Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                },
+                {
+                  "key": "from",
+                  "value": "2024-01-01T00:00:00Z"
+                },
+                {
+                  "key": "to",
+                  "value": "2024-01-02T00:00:00Z"
+                }
+              ]
+            },
+            "description": "TC ID: POS-004 | Title: Verify only positions within the specified date range are returned\nType: Functional | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "POS-005 – GET /api/v1/positions (limit=0 edge case)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-005: Status 200 or 400', () => pm.expect(pm.response.code).to.be.oneOf([200,400]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/positions?deviceId={{deviceId}}&limit=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "TC ID: POS-005 | Title: Verify appropriate response is returned when the limit parameter is set to zero\nType: Edge Case | Priority: Low | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "POS-006 – GET /api/v1/positions (latest position only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-006: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('POS-006: Exactly one result', () => pm.expect(pm.response.json().length).to.equal(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/positions?deviceId={{deviceId}}&limit=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "TC ID: POS-006 | Title: Verify only the most recent position is returned when limit is set to one\nType: Functional | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "POS-007 – GET /api/v1/positions (no auth returns 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-007: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/positions?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                }
+              ]
+            },
+            "description": "TC ID: POS-007 | Title: Verify 401 is returned when requesting positions without an Authorization header\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "POS-008 – GET /api/v1/positions (response time under 3000ms)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-008: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('POS-008: Response time under 3000ms', () => pm.expect(pm.response.responseTime).to.be.below(3000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/positions?deviceId={{deviceId}}&limit=100",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "positions"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "100"
+                }
+              ]
+            },
+            "description": "TC ID: POS-008 | Title: Verify the positions endpoint responds within 3000 milliseconds for a 100-record request\nType: Performance | Priority: Low | Status: Not Run | Environment: API — REST v1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "ALRT – Alert Management",
+      "item": [
+        {
+          "name": "ALRT-001 – GET /api/v1/alerts (list alerts for company)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALRT-001: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ALRT-001: Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "pm.test('ALRT-001: Each alert has id and type', () => { const a=pm.response.json(); if(a.length>0){ pm.expect(a[0]).to.have.property('id'); pm.expect(a[0]).to.have.property('type'); } });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alerts"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ALRT-001 | Title: Verify all alerts are returned when listing alerts for the authenticated company\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "ALRT-002 – POST /api/v1/alerts/{id}/read (mark alert as read)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALRT-002: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ALRT-002: isRead is true in response', () => { const j=pm.response.json(); if(j.isRead!==undefined) pm.expect(j.isRead).to.equal(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts/{{alertId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alerts",
+                "{{alertId}}",
+                "read"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ALRT-002 | Title: Verify alert is marked as read when the read endpoint is called with a valid alert identifier\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "ALRT-003 – POST /api/v1/alerts/{id}/read with isRead=false (known bug: always marks as read)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALRT-003: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ALRT-003: Alert is still read (isRead=false is no-op regression)', () => {",
+                  "  const j=pm.response.json(); if(j.isRead!==undefined) pm.expect(j.isRead).to.equal(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts/{{alertId}}/read?isRead=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alerts",
+                "{{alertId}}",
+                "read"
+              ],
+              "query": [
+                {
+                  "key": "isRead",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "TC ID: ALRT-003 | Title: Verify SetAlertAsRead always marks the alert as read regardless of the isRead parameter value\nType: Regression | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: Known bug — isRead=false is a no-op. Alert is always marked as read. This test guards against accidental fix changing the contract."
+          }
+        },
+        {
+          "name": "ALRT-004 – POST /api/v1/alerts/{id}/read (non-existent alert returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALRT-004: Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts/NON_EXISTENT_ALERT_ID/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alerts",
+                "NON_EXISTENT_ALERT_ID",
+                "read"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ALRT-004 | Title: Verify 404 is returned when marking as read an alert identifier that does not exist\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "ALRT-005 – GET /api/v1/alerts (cross-company alert not returned)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALRT-005: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ALRT-005: All alerts belong to own company', () => { const a=pm.response.json(); a.forEach(al => { pm.expect(String(al.companyId||pm.collectionVariables.get('companyId'))).to.equal(pm.collectionVariables.get('companyId')); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alerts"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ALRT-005 | Title: Verify alerts belonging to another company are not included in the authenticated company alert listing\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "ALRT-006 – GET /api/v1/alerts (no auth returns 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALRT-006: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alerts"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ALRT-006 | Title: Verify 401 is returned when listing alerts without an Authorization header\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "ALRT-007 – GET /api/v1/alerts (filter by unread status)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALRT-007: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ALRT-007: All returned alerts are unread', () => { const a=pm.response.json(); a.forEach(al => { if(al.isRead!==undefined) pm.expect(al.isRead).to.equal(false); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alerts?isRead=false",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alerts"
+              ],
+              "query": [
+                {
+                  "key": "isRead",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "TC ID: ALRT-007 | Title: Verify only unread alerts are returned when the isRead filter is set to false\nType: Functional | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "ENG – Engine Control",
+      "item": [
+        {
+          "name": "ENG-001 – POST /api/v1/devices/{id}/engine/disable (stopped vehicle)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-001: Status 200 or 202', () => pm.expect(pm.response.code).to.be.oneOf([200,202]));",
+                  "pm.test('ENG-001: Command acknowledged', () => pm.expect(pm.response.json()).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{deviceId}}/engine/disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{deviceId}}",
+                "engine",
+                "disable"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ENG-001 | Title: Verify engine disable command is accepted when the vehicle is not currently moving\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "ENG-002 – POST /api/v1/devices/{id}/engine/disable (moving vehicle returns 422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-002: SAFETY — Status 422 (cannot disable moving vehicle)', () => pm.response.to.have.status(422));",
+                  "pm.test('ENG-002: Must NOT return 200 (safety critical)', () => pm.expect(pm.response.code).to.not.equal(200));",
+                  "pm.test('ENG-002: Error message references vehicle movement', () => { const j=pm.response.json(); pm.expect(JSON.stringify(j).toLowerCase()).to.satisfy(s => s.includes('moving')||s.includes('speed')||s.includes('motion')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{movingDeviceId}}/engine/disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{movingDeviceId}}",
+                "engine",
+                "disable"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ENG-002 | Title: Verify 422 is returned when an engine disable command is issued while the vehicle is moving\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: SAFETY-CRITICAL — engine disable while moving must be rejected with 422. This must NEVER return 200."
+          }
+        },
+        {
+          "name": "ENG-003 – POST /api/v1/devices/{id}/engine/enable (re-enable engine)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-003: Status 200 or 202', () => pm.expect(pm.response.code).to.be.oneOf([200,202]));",
+                  "pm.test('ENG-003: Command acknowledged', () => pm.expect(pm.response.json()).to.exist);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{deviceId}}/engine/enable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{deviceId}}",
+                "engine",
+                "enable"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ENG-003 | Title: Verify engine enable command is accepted when a valid device identifier is supplied\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "ENG-004 – POST /api/v1/devices/{id}/engine/disable (device from another company returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-004: Status 404 (not 403)', () => pm.response.to.have.status(404));",
+                  "pm.test('ENG-004: Must NOT return 403', () => pm.expect(pm.response.code).to.not.equal(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{otherCompanyDeviceId}}/engine/disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{otherCompanyDeviceId}}",
+                "engine",
+                "disable"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ENG-004 | Title: Verify 404 is returned when attempting to disable the engine of a device belonging to another company\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: Must be 404 not 403 — prevents company enumeration."
+          }
+        },
+        {
+          "name": "ENG-005 – POST /api/v1/devices/{id}/engine/disable (no auth returns 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-005: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{deviceId}}/engine/disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{deviceId}}",
+                "engine",
+                "disable"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ENG-005 | Title: Verify 401 is returned when issuing an engine disable command without an Authorization header\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "ENG-006 – POST /api/v1/devices/{id}/engine/disable (non-existent device returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-006: Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/NON_EXISTENT_DEVICE_99999/engine/disable",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "NON_EXISTENT_DEVICE_99999",
+                "engine",
+                "disable"
+              ],
+              "query": []
+            },
+            "description": "TC ID: ENG-006 | Title: Verify 404 is returned when issuing an engine disable command for a device identifier that does not exist\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "GEN – General and Device Management",
+      "item": [
+        {
+          "name": "GEN-001 – GET /api/v1/devices (list all company devices)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-001: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('GEN-001: Response is array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+                  "pm.test('GEN-001: Array not empty', () => pm.expect(pm.response.json().length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices"
+              ],
+              "query": []
+            },
+            "description": "TC ID: GEN-001 | Title: Verify all devices belonging to the authenticated company are returned\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "GEN-002 – GET /api/v1/devices/{id} (single device details)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-002: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('GEN-002: Response has id', () => pm.expect(pm.response.json()).to.have.property('id'));",
+                  "pm.test('GEN-002: ConnectionStrengh present (intentional spelling)', () => pm.expect(pm.response.json()).to.have.property('ConnectionStrengh'));",
+                  "pm.test('GEN-002: UserTimeFormated present (intentional spelling)', () => pm.expect(pm.response.json()).to.have.property('UserTimeFormated'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{deviceId}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: GEN-002 | Title: Verify device details are returned when a valid device identifier is supplied\nType: Functional | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "GEN-003 – GET /api/v1/devices/{id} (device from another company returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-003: Status 404 (not 403)', () => pm.response.to.have.status(404));",
+                  "pm.test('GEN-003: Must NOT return 403', () => pm.expect(pm.response.code).to.not.equal(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{otherCompanyDeviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{otherCompanyDeviceId}}"
+              ],
+              "query": []
+            },
+            "description": "TC ID: GEN-003 | Title: Verify 404 is returned when requesting details for a device belonging to another company\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1\nNotes: Must be 404 not 403."
+          }
+        },
+        {
+          "name": "GEN-004 – GET /api/v1/devices/{id} (non-existent device returns 404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-004: Status 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/NON_EXISTENT_99999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "NON_EXISTENT_99999"
+              ],
+              "query": []
+            },
+            "description": "TC ID: GEN-004 | Title: Verify 404 is returned when requesting details for a device identifier that does not exist\nType: Negative | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "GEN-005 – GET /api/v1/devices (no auth returns 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-005: Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices"
+              ],
+              "query": []
+            },
+            "description": "TC ID: GEN-005 | Title: Verify 401 is returned when listing devices without an Authorization header\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "GEN-006 – GET /api/v1/devices (response time under 2000ms)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-006: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('GEN-006: Response time under 2000ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices"
+              ],
+              "query": []
+            },
+            "description": "TC ID: GEN-006 | Title: Verify the device listing endpoint responds within 2000 milliseconds\nType: Performance | Priority: Low | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "GEN-007 – GET /api/v1/devices (only company-scoped devices returned)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-007: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('GEN-007: All devices scoped to own company', () => { const a=pm.response.json(); a.forEach(d => { pm.expect(String(d.companyId||pm.collectionVariables.get('companyId'))).to.equal(pm.collectionVariables.get('companyId')); }); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices"
+              ],
+              "query": []
+            },
+            "description": "TC ID: GEN-007 | Title: Verify only devices belonging to the authenticated company are included in the device listing\nType: Security | Priority: High | Status: Not Run | Environment: API — REST v1"
+          }
+        },
+        {
+          "name": "GEN-008 – GET /api/v1/company (company profile details)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-008: Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('GEN-008: Response has company id', () => { const j=pm.response.json(); pm.expect(j.id||j.companyId).to.exist; });",
+                  "pm.test('GEN-008: Company id matches expected', () => { const j=pm.response.json(); pm.expect(String(j.id||j.companyId)).to.equal(pm.collectionVariables.get('companyId')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/company",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "company"
+              ],
+              "query": []
+            },
+            "description": "TC ID: GEN-008 | Title: Verify company profile details are returned when requesting the authenticated company profile\nType: Functional | Priority: Medium | Status: Not Run | Environment: API — REST v1"
+          }
+        }
+      ]
+    }
+  ]
+}

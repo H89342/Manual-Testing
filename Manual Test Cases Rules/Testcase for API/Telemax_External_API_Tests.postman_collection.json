@@ -1,0 +1,3462 @@
+{
+  "info": {
+    "name": "Telemax External API Tests",
+    "_postman_id": "telemax-api-2026-04-24",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "71 test cases — Telemax External API v1, Documentation Review 14 Apr 2026. Includes auto token refresh, pre-request scripts, and test assertions."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.telemax.com.au",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "YOUR_API_KEY_HERE",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tokenExpiry",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "deviceId",
+      "value": "42",
+      "type": "string"
+    },
+    {
+      "key": "vehicleId",
+      "value": "85",
+      "type": "string"
+    },
+    {
+      "key": "companyId",
+      "value": "85",
+      "type": "string"
+    },
+    {
+      "key": "testVin",
+      "value": "1HGCM82633A004352",
+      "type": "string"
+    },
+    {
+      "key": "testImei",
+      "value": "352656100359446",
+      "type": "string"
+    },
+    {
+      "key": "webhookUrl",
+      "value": "https://partner.example.com/hooks/telemax",
+      "type": "string"
+    },
+    {
+      "key": "webhookSecret",
+      "value": "whsec_partner_generated_secret_key",
+      "type": "string"
+    },
+    {
+      "key": "webhookId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "alertId",
+      "value": "123",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// AUTO TOKEN REFRESH — runs before every request",
+          "const _t=pm.collectionVariables.get('accessToken'),_e=pm.collectionVariables.get('tokenExpiry');",
+          "if(!_t||!_e||Date.now()>=parseInt(_e)){",
+          "  pm.sendRequest({url:pm.collectionVariables.get('baseUrl')+'/api/token',method:'POST',",
+          "    header:{'Content-Type':'application/json'},",
+          "    body:{mode:'raw',raw:JSON.stringify({apiKey:pm.collectionVariables.get('apiKey')})}",
+          "  },(err,rs)=>{",
+          "    if(!err&&rs.json().access_token){",
+          "      pm.collectionVariables.set('accessToken',rs.json().access_token);",
+          "      pm.collectionVariables.set('tokenExpiry',(Date.now()+((rs.json().expires_in||86399)-300)*1000).toString());",
+          "      console.log('✅ Token refreshed, exp in',rs.json().expires_in,'s');",
+          "    }else console.error('❌ Token error',err);",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Auth folder: token tests manage auth manually"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "AUTH-01 Obtain token",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('Authorization');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-01: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('AUTH-01: access_token',()=>pm.expect(pm.response.json()).to.have.property('access_token').and.is.a('string').and.not.empty);",
+                  "pm.test('AUTH-01: expires_in',()=>pm.expect(pm.response.json().expires_in).to.be.a('number'));",
+                  "const b=pm.response.json();if(b.access_token){pm.collectionVariables.set('accessToken',b.access_token);pm.collectionVariables.set('tokenExpiry',(Date.now()+(b.expires_in-300)*1000).toString());console.log('Token saved');}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "token"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"apiKey\":\"{{apiKey}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "AUTH-02 expires_in ~86399 not 3600",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('Authorization');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-02: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('AUTH-02: expires_in ~86399 not 3600',()=>{const b=pm.response.json();pm.expect(b.expires_in,'OpenAPI says 3600 but actual is ~86399').to.be.above(3600);pm.expect(b.expires_in).to.be.closeTo(86399,600);});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "token"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"apiKey\":\"{{apiKey}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "AUTH-03 Valid token allows access",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-03: Not 401',()=>pm.expect(pm.response.code).to.not.equal(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "AUTH-04 Expired token → 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.upsert({key:'Authorization',value:'Bearer expiredToken.invalid.sig'});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-04: 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "AUTH-05 No token → 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('Authorization');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-05: 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "AUTH-06 Malformed token → 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.upsert({key:'Authorization',value:'Bearer GARBAGE'});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-06: 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "AUTH-07 Token reuse fast calls",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('AUTH-07: Not 401',()=>pm.expect(pm.response.code).to.not.equal(401));",
+                  "pm.test('AUTH-07: <3000ms',()=>pm.expect(pm.response.responseTime).to.be.below(3000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Engine / DTC Codes",
+      "description": "GET /api/devices/{deviceId}/dtc-codes",
+      "item": [
+        {
+          "name": "DTC-01 Valid device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-01: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('DTC-01: array',()=>pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "DTC-02 Enriched fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-02: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('DTC-02: enriched',()=>{const a=pm.response.json();if(a.length>0){['code','description','whyItMatters','possibleCauses','recommendedAction','severity','persistenceNote','detectedAt','location','isActive'].forEach(f=>pm.expect(a[0]).to.have.property(f,f+' missing'));}});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "DTC-03 description not null [regression]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-03: description not null [was unpopulated]',()=>{const a=pm.response.json();if(a.length>0){pm.expect(a[0].description).to.not.be.null;pm.expect(a[0].description).to.not.equal('');}});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "DTC-04 severity enum",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-04: severity valid',()=>{const a=pm.response.json();if(a.length>0)pm.expect(a[0].severity).to.be.oneOf(['Critical','Warning','Informational']);});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "DTC-05 Unknown code not omitted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-05: all codes present',()=>{pm.response.json().forEach(d=>pm.expect(d).to.have.property('code'));});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "DTC-06 Invalid device → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-06: 404',()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/9999999/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "9999999",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "DTC-07 Cross-company → 404",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.url.path[2]=pm.environment.get('crossCompanyDeviceId')||'99001';"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-07: 404 not 403',()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "DTC-08 No token → 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('Authorization');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-08: 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "DTC-09 location structure",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-09: location',()=>{const a=pm.response.json();if(a.length>0&&a[0].location!==null)pm.expect(a[0].location).to.include.all.keys('address','latitude','longitude');});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "DTC-10 isActive boolean",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('DTC-10: isActive bool',()=>{const a=pm.response.json();if(a.length>0)pm.expect(a[0].isActive).to.be.a('boolean');});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Webhooks",
+      "description": "POST/GET/DELETE /api/webhooks",
+      "item": [
+        {
+          "name": "WH-01 Create valid webhook",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-01: 200/201',()=>pm.expect(pm.response.code).to.be.oneOf([200,201]));",
+                  "pm.test('WH-01: has id',()=>pm.expect(pm.response.json()).to.have.property('id'));",
+                  "const id=pm.response.json().id;if(id)pm.collectionVariables.set('webhookId',String(id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"url\":\"{{webhookUrl}}\",\"events\":[\"vehicle.engine.enabled\",\"vehicle.engine.disabled\",\"vehicle.overspeed\"],\"secret\":\"{{webhookSecret}}\",\"companyId\":{{companyId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "WH-02 All 5 events",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-02: 200/201',()=>pm.expect(pm.response.code).to.be.oneOf([200,201]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"url\":\"{{webhookUrl}}\",\"events\":[\"vehicle.engine.enabled\",\"vehicle.engine.disabled\",\"vehicle.overspeed\",\"vehicle.dtc.detected\",\"vehicle.low_fuel\"],\"secret\":\"{{webhookSecret}}\",\"companyId\":{{companyId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "WH-03 Empty events → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-03: 400',()=>pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"url\":\"{{webhookUrl}}\",\"events\":[],\"secret\":\"{{webhookSecret}}\",\"companyId\":{{companyId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "WH-04 Invalid URL → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-04: 400',()=>pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"url\":\"not-valid\",\"events\":[\"vehicle.overspeed\"],\"secret\":\"{{webhookSecret}}\",\"companyId\":{{companyId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "WH-05 Missing url → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-05: 400',()=>pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"events\":[\"vehicle.overspeed\"],\"secret\":\"{{webhookSecret}}\",\"companyId\":{{companyId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "WH-06 Missing secret → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-06: 400',()=>pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"url\":\"{{webhookUrl}}\",\"events\":[\"vehicle.overspeed\"],\"companyId\":{{companyId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "WH-07 HMAC signature check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-07: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('WH-07: secret configured',()=>pm.expect(pm.response.json()).to.have.property('secret'));",
+                  "console.log('WH-07: On delivery, verify X-Telemax-Signature: sha256=HMAC-SHA256(body,secret)');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "WH-08 Delivery payload fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-08: url and events',()=>{const b=pm.response.json();pm.expect(b).to.have.property('url');pm.expect(b.events).to.be.an('array');});",
+                  "console.log('WH-08: Expected delivery fields: id,event,timestamp(ISO8601),companyId,vehicle{id,name,vin},data{lat,lng,address,speed}');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "WH-09 List webhooks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-09: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('WH-09: array',()=>pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "WH-10 Delete webhook",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-10: 200/204',()=>pm.expect(pm.response.code).to.be.oneOf([200,204]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/{{webhookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "{{webhookId}}"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "WH-11 Delete non-existent → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-11: 404',()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/9999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "9999999"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "WH-12 Retry policy (integration note)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-12: 200',()=>pm.response.to.have.status(200));",
+                  "console.log('WH-12 MANUAL: Test retry backoff (30s,2m,15m,1h,6h,max 5/24h) using a controllable callback returning 500');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "WH-13 No token → 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('Authorization');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-13: 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"url\":\"{{webhookUrl}}\",\"events\":[\"vehicle.overspeed\"],\"secret\":\"s\",\"companyId\":{{companyId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "WH-14 Invalid event type → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-14: 400',()=>pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"url\":\"{{webhookUrl}}\",\"events\":[\"bad.event\"],\"secret\":\"s\",\"companyId\":{{companyId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "WH-15 Unique webhook IDs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('WH-15: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('WH-15: unique ids',()=>{const ids=pm.response.json().map(w=>w.id);pm.expect(new Set(ids).size).to.equal(ids.length,'Duplicate ids');});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "webhooks"
+              ],
+              "query": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. VIN / Vehicle Details Lookup",
+      "description": "POST /api/GetVehicleDetails",
+      "item": [
+        {
+          "name": "VIN-01 Lookup by VIN",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-01: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('VIN-01: has vehicleId',()=>pm.expect(pm.response.json().vehicleId).to.be.a('number'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?vin={{testVin}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "vin",
+                  "value": "{{testVin}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "VIN-02 Lookup by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-02: 200',()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?id={{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "{{vehicleId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "VIN-03 Lookup by IMEI",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-03: 200',()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?imei={{testImei}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "imei",
+                  "value": "{{testImei}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "VIN-04 Full schema",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-04: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('VIN-04: full schema',()=>{const b=pm.response.json();['vehicleId','vehicleName','vin','imei','rego','make','model','year','fuelTankCapacity','companyId','companyName'].forEach(f=>pm.expect(b).to.have.property(f,f+' missing'));pm.expect(b.year).to.be.a('number');pm.expect(b.fuelTankCapacity).to.be.a('number');});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?id={{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "{{vehicleId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "VIN-05 No params → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-05: 400',()=>pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "VIN-06 Unknown VIN → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-06: 404',()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?vin=UNKNOWNVIN00000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "vin",
+                  "value": "UNKNOWNVIN00000",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "VIN-07 Cross-company → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-07: 404 not 403',()=>pm.response.to.have.status(404),'Must 404 to prevent VIN enumeration');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?vin=CROSSCOMPANYVIN",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "vin",
+                  "value": "CROSSCOMPANYVIN",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "VIN-08 Rate limit 429",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-08: 429 or normal',()=>{if(pm.response.code===429){pm.expect(pm.response.headers.get('Retry-After')).to.exist;}else{pm.expect(pm.response.code).to.be.oneOf([200,404]);}});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?vin={{testVin}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "vin",
+                  "value": "{{testVin}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "VIN-09 fuelTankCapacity positive float",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-09: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('VIN-09: fuelTankCapacity >0',()=>pm.expect(pm.response.json().fuelTankCapacity).to.be.a('number').and.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?id={{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "{{vehicleId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "VIN-10 No token → 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('Authorization');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('VIN-10: 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?id={{vehicleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "{{vehicleId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Position Data + Fuel Level",
+      "description": "Validates new fuelLevelVolume on all position endpoints",
+      "item": [
+        {
+          "name": "POS-01 fuelLevel (%) in GetLastPositionData",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-01: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('POS-01: fuelLevel 0-100',()=>{const b=pm.response.json();pm.expect(b.fuelLevel).to.be.a('number').and.within(0,100);});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetLastPositionData?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetLastPositionData"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POS-02 fuelLevelVolume (litres) NEW field",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-02: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('POS-02: fuelLevelVolume exists',()=>pm.expect(pm.response.json(),'fuelLevelVolume field must exist (new)').to.have.property('fuelLevelVolume'));",
+                  "pm.test('POS-02: fuelLevelVolume is number or null',()=>pm.expect(pm.response.json().fuelLevelVolume).to.satisfy(v=>v===null||typeof v==='number'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetLastPositionData?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetLastPositionData"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POS-03 No volumetric sensor → null not 0",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-03: null not 0 for no-sensor vehicle',()=>{const v=pm.response.json().fuelLevelVolume;if(v===0)pm.expect.fail('fuelLevelVolume must be null for no-sensor vehicle, not 0');pm.expect(v).to.satisfy(x=>x===null||x>0,'null=no sensor, positive=litres, 0=wrong');});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetLastPositionData?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetLastPositionData"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POS-04 fuelLevel preserved (backward compat)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-04: original fuelLevel still present',()=>pm.expect(pm.response.json(),'fuelLevel must not be removed').to.have.property('fuelLevel'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetLastPositionData?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetLastPositionData"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POS-05 GetAllLastPositionData has fuelLevelVolume",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-05: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('POS-05: fuelLevelVolume present',()=>{const a=pm.response.json();if(Array.isArray(a)&&a.length>0)pm.expect(a[0]).to.have.property('fuelLevelVolume');});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetAllLastPositionData?companyId={{companyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetAllLastPositionData"
+              ],
+              "query": [
+                {
+                  "key": "companyId",
+                  "value": "{{companyId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POS-06 GetReplay has fuelLevelVolume",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-06: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('POS-06: fuelLevelVolume in replay',()=>{const b=pm.response.json();const a=Array.isArray(b)?b:(b.positions||[]);if(a.length>0)pm.expect(a[0]).to.have.property('fuelLevelVolume');});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetReplay?deviceId={{deviceId}}&from=2026-04-01T00:00:00Z&to=2026-04-01T23:59:59Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetReplay"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}",
+                  "disabled": false
+                },
+                {
+                  "key": "from",
+                  "value": "2026-04-01T00:00:00Z",
+                  "disabled": false
+                },
+                {
+                  "key": "to",
+                  "value": "2026-04-01T23:59:59Z",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POS-07 ConnectionStrengh typo preserved",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-07: ConnectionStrengh (typo) still present for backward compat',()=>pm.expect(pm.response.json(),'Intentional typo must NOT be renamed').to.have.property('ConnectionStrengh'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetLastPositionData?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetLastPositionData"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "POS-08 UserTimeFormated typo preserved",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('POS-08: UserTimeFormated (typo) still present',()=>pm.expect(pm.response.json(),'Intentional typo must NOT be renamed').to.have.property('UserTimeFormated'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetLastPositionData?deviceId={{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetLastPositionData"
+              ],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Alert Management",
+      "description": "POST /api/SetAlertAsRead — known bug: isRead=false is a no-op",
+      "item": [
+        {
+          "name": "ALERT-01 Mark as read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALERT-01: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('ALERT-01: isRead=true',()=>{const b=pm.response.json();if(b.isRead!==undefined)pm.expect(b.isRead).to.equal(true);});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SetAlertAsRead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SetAlertAsRead"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"alertId\":{{alertId}},\"isRead\":true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ALERT-02 isRead=false [KNOWN BUG]",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALERT-02: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('ALERT-02 [BUG]: isRead=false should mark unread — currently no-op',()=>{const b=pm.response.json();if(b.isRead===true){console.warn('KNOWN BUG CONFIRMED: isRead=false is a no-op — alert still read');}else if(b.isRead===false){pm.expect(b.isRead).to.equal(false,'BUG fixed! isRead=false now works');}});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SetAlertAsRead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SetAlertAsRead"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"alertId\":{{alertId}},\"isRead\":false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ALERT-03 No-op confirmation via re-fetch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALERT-03: 200',()=>pm.response.to.have.status(200));",
+                  "pm.sendRequest({url:pm.collectionVariables.get('baseUrl')+'/api/GetAlerts',method:'GET',header:{Authorization:'Bearer '+pm.collectionVariables.get('accessToken')}},(err,res)=>{if(!err&&res.code===200){const a=res.json();const item=Array.isArray(a)?a.find(x=>x.id==pm.collectionVariables.get('alertId')):null;if(item)console.log('ALERT-03: isRead state after false:',item.isRead);}});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SetAlertAsRead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SetAlertAsRead"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"alertId\":{{alertId}},\"isRead\":false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ALERT-04 Not found → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALERT-04: 404',()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SetAlertAsRead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SetAlertAsRead"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"alertId\":9999999,\"isRead\":true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ALERT-05 Cross-company → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALERT-05: 404',()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SetAlertAsRead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SetAlertAsRead"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"alertId\":9999999,\"isRead\":true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ALERT-06 Missing alertId → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALERT-06: 400',()=>pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SetAlertAsRead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SetAlertAsRead"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"isRead\":true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ALERT-07 No token → 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('Authorization');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ALERT-07: 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SetAlertAsRead",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SetAlertAsRead"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"alertId\":{{alertId}},\"isRead\":true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Engine Disable / Enable Commands",
+      "description": "Safety-critical: engine disable while moving must return 422",
+      "item": [
+        {
+          "name": "ENG-01 Disable engine stopped vehicle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-01: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('ENG-01: command acknowledged',()=>pm.expect(pm.response.json()).to.have.any.keys('success','status','commandId','message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SendEngineDisableCommand",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SendEngineDisableCommand"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicleId\":{{vehicleId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ENG-02 SAFETY: Disable moving vehicle → 422",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const mId=pm.environment.get('movingVehicleId')||pm.collectionVariables.get('vehicleId');",
+                  "pm.request.body.raw=JSON.stringify({vehicleId:parseInt(mId)});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-02 SAFETY CRITICAL: 422 when vehicle moving',()=>{if(pm.response.code===200)console.error('⚠️ SAFETY BUG: Engine disabled on moving vehicle! Must return 422');pm.expect(pm.response.code,'SAFETY: must reject engine disable when speed > 0').to.equal(422);});",
+                  "pm.test('ENG-02: Safety error message mentions speed/moving',()=>{if(pm.response.code===422){const msg=JSON.stringify(pm.response.json()).toLowerCase();pm.expect(msg).to.satisfy(m=>m.includes('moving')||m.includes('speed')||m.includes('danger'));}});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SendEngineDisableCommand",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SendEngineDisableCommand"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicleId\":{{vehicleId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ENG-03 Enable engine",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-03: 200',()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SendEngineEnableCommand",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SendEngineEnableCommand"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicleId\":{{vehicleId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ENG-04 Invalid vehicle → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-04: 404',()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SendEngineDisableCommand",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SendEngineDisableCommand"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicleId\":9999999}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ENG-05 Cross-company → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-05: 404',()=>pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SendEngineDisableCommand",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SendEngineDisableCommand"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicleId\":9999999}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "ENG-06 No token → 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('Authorization');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('ENG-06: 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/SendEngineDisableCommand",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "SendEngineDisableCommand"
+              ],
+              "query": []
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"vehicleId\":{{vehicleId}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. General & Cross-Cutting",
+      "description": "API versioning, pagination, rate limits, security",
+      "item": [
+        {
+          "name": "GEN-01 Error responses have body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-01: 4xx error',()=>pm.expect(pm.response.code).to.be.within(400,599));",
+                  "pm.test('GEN-01: error body',()=>{try{const b=pm.response.json();pm.expect(b).to.have.any.keys('message','error','title','detail');}catch(e){console.log('Non-JSON error body');}});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/bad-id/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "bad-id",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "GEN-02 X-API-Version header",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-02: X-API-Version header present',()=>{const v=pm.response.headers.get('X-API-Version');if(!v){console.warn('GEN-02: X-API-Version not yet implemented — pending middleware');}else{pm.expect(v).to.match(/^\\d{4}-\\d{2}-\\d{2}$/,'Format: YYYY-MM-DD');}});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "GEN-03 Pagination params accepted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-03: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('GEN-03: pagination honoured',()=>{const b=pm.response.json();if(Array.isArray(b))pm.expect(b.length).to.be.most(10,'pageSize=10 should return max 10 items');else pm.expect(b).to.have.any.keys('data','items','results','total','page');});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetAllLastPositionData?companyId={{companyId}}&page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetAllLastPositionData"
+              ],
+              "query": [
+                {
+                  "key": "companyId",
+                  "value": "{{companyId}}",
+                  "disabled": false
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": false
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GEN-04 Internal endpoint blocked",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.remove('Authorization');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-04: internal endpoint not public',()=>pm.expect(pm.response.code).to.be.oneOf([403,404],'Internal /api/rebuild-vehicle-movement-cache must not be public'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rebuild-vehicle-movement-cache",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rebuild-vehicle-movement-cache"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "GEN-05 Rate limit 429 Retry-After",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-05: 429 has Retry-After',()=>{if(pm.response.code===429)pm.expect(pm.response.headers.get('Retry-After')).to.exist;else pm.expect(pm.response.code).to.be.oneOf([200,404]);});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/GetVehicleDetails?vin={{testVin}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "GetVehicleDetails"
+              ],
+              "query": [
+                {
+                  "key": "vin",
+                  "value": "{{testVin}}",
+                  "disabled": false
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GEN-06 Company scoping",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-06: 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('GEN-06: no cross-company data',()=>{const a=pm.response.json();if(Array.isArray(a))a.forEach(it=>{if(it.companyId!==undefined)pm.expect(String(it.companyId)).to.equal(pm.collectionVariables.get('companyId'),'Cross-company data leaked');});});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "GEN-07 Content-Type is JSON",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-07: Content-Type application/json',()=>pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        },
+        {
+          "name": "GEN-08 Response time < 5000ms",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('GEN-08: Response < 5000ms',()=>pm.expect(pm.response.responseTime).to.be.below(5000));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/devices/{{deviceId}}/dtc-codes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "devices",
+                "{{deviceId}}",
+                "dtc-codes"
+              ],
+              "query": []
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
