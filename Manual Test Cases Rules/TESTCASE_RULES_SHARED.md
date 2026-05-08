@@ -83,8 +83,8 @@ Every single test case MUST contain all of the following fields. A TC is not com
 | Field | Required | Notes |
 |-------|----------|-------|
 | TC ID | YES | Format: `ModuleName-001`. Never reuse or skip. |
-| Title | YES | Verify <expected result> when <action/condition> |
 | Screen / Section | YES | The screen name, page, or document section this TC maps to (e.g. `Login Page`, `Section 3.2 – Password Reset`, `Checkout – Step 2`). Used for requirement traceability. |
+| Title | YES | Verify <expected result> when <action/condition> |
 | Preconditions | YES | At least one bullet. Never leave blank. |
 | Steps table | YES | Min 2 steps. Action steps only. Each item on its own line within the cell. |
 | Expected Result | YES | Each item on its own line within the cell. |
@@ -102,11 +102,28 @@ When exporting test cases to Excel, columns must follow the same order as the ma
 
 | Column | A | B | C | D | E | F | G | H | I | J | K | L | M |
 |--------|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **Field** | TC ID | Title | Screen / Section | Preconditions | Steps (Action) | Expected Result | Test Data | Postconditions | Status | Priority | Type | Environment | Notes |
+| **Field** | TC ID | Screen / Section | Title | Preconditions | Steps (Action) | Expected Result | Test Data | Postconditions | Status | Priority | Type | Environment | Notes |
 
 - Do not reorder, hide, or merge columns.
 - Column names in the header row must match exactly as listed above.
 - Each item within Preconditions, Steps, Expected Result, Postconditions uses a line break inside the cell (`Alt + Enter`). Do not split into multiple rows.
+
+### Excel Cell Formatting
+
+Apply the following formatting to every test case sheet to avoid manual re-formatting after each export.
+
+#### Wrap Text
+Enable **Wrap Text** on **all cells** — header row and every data row, every column.
+Never leave cells in overflow mode (text spilling into adjacent cells).
+
+#### Vertical Alignment
+
+| Alignment | Columns |
+|-----------|---------|
+| **Top** | Preconditions (D) · Steps / Action (E) · Expected Result (F) |
+| **Center** | TC ID (A) · Screen / Section (B) · Title (C) · Test Data (G) · Postconditions (H) · Status (I) · Priority (J) · Type (K) · Environment (L) · Notes (M) |
+
+> Rule: Top alignment is applied to the three columns that contain multi-line content (bullet lists or numbered steps). All other columns use center alignment so short values do not float to the top of tall rows.
 
 ---
 
@@ -249,14 +266,14 @@ Every test case file must end with a summary table:
 ```markdown
 ## Summary
 
-| TC ID      | Title     | Screen / Section | Type     | Priority | Status  |
-|------------|-----------|-----------------|----------|----------|---------|
-| **AUTHENTICATION** |   |                 |          |          |         |
-| AUTH-001   | [Title]   | [Screen/Section] | [Type]  | High     | Not Run |
-| AUTH-002   | [Title]   | [Screen/Section] | [Type]  | Medium   | Not Run |
-| **CHECKOUT** |         |                 |          |          |         |
-| CHKOUT-001 | [Title]   | [Screen/Section] | [Type]  | High     | Not Run |
-| CHKOUT-002 | [Title]   | [Screen/Section] | [Type]  | Medium   | Not Run |
+| TC ID      | Screen / Section  | Title     | Type     | Priority | Status  |
+|------------|-------------------|-----------|----------|----------|---------|
+| **AUTHENTICATION** |             |           |          |          |         |
+| AUTH-001   | [Screen/Section]  | [Title]   | [Type]   | High     | Not Run |
+| AUTH-002   | [Screen/Section]  | [Title]   | [Type]   | Medium   | Not Run |
+| **CHECKOUT** |               |           |          |          |         |
+| CHKOUT-001 | [Screen/Section]  | [Title]   | [Type]   | High     | Not Run |
+| CHKOUT-002 | [Screen/Section]  | [Title]   | [Type]   | Medium   | Not Run |
 ```
 
 ---
