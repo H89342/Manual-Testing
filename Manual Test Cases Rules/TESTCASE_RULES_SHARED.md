@@ -84,6 +84,7 @@ Every single test case MUST contain all of the following fields. A TC is not com
 |-------|----------|-------|
 | TC ID | YES | Format: `ModuleName-001`. Never reuse or skip. |
 | Title | YES | Verify <expected result> when <action/condition> |
+| Screen / Section | YES | The screen name, page, or document section this TC maps to (e.g. `Login Page`, `Section 3.2 – Password Reset`, `Checkout – Step 2`). Used for requirement traceability. |
 | Preconditions | YES | At least one bullet. Never leave blank. |
 | Steps table | YES | Min 2 steps. Action steps only. Each item on its own line within the cell. |
 | Expected Result | YES | Each item on its own line within the cell. |
@@ -99,9 +100,9 @@ Every single test case MUST contain all of the following fields. A TC is not com
 
 When exporting test cases to Excel, columns must follow the same order as the mandatory fields above — left to right:
 
-| Column | A | B | C | D | E | F | G | H | I | J | K | L |
-|--------|---|---|---|---|---|---|---|---|---|---|---|---|
-| **Field** | TC ID | Title | Preconditions | Steps (Action) | Expected Result | Test Data | Postconditions | Status | Priority | Type | Environment | Notes |
+| Column | A | B | C | D | E | F | G | H | I | J | K | L | M |
+|--------|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Field** | TC ID | Title | Screen / Section | Preconditions | Steps (Action) | Expected Result | Test Data | Postconditions | Status | Priority | Type | Environment | Notes |
 
 - Do not reorder, hide, or merge columns.
 - Column names in the header row must match exactly as listed above.
@@ -248,14 +249,14 @@ Every test case file must end with a summary table:
 ```markdown
 ## Summary
 
-| TC ID  | Title                         | Type      | Priority | Status  |
-|--------|-------------------------------|-----------|----------|---------|
-| **AUTHENTICATION** |       |          |          |         |
-| AUTH-001       | [Title]   | [Type]   | High     | Not Run |
-| AUTH-002       | [Title]   | [Type]   | Medium   | Not Run |
-| **CHECKOUT**   |           |          |          |         |
-| CHKOUT-001   | [Title]   | [Type]   | High     | Not Run |
-| CHKOUT-002   | [Title]   | [Type]   | Medium   | Not Run |
+| TC ID      | Title     | Screen / Section | Type     | Priority | Status  |
+|------------|-----------|-----------------|----------|----------|---------|
+| **AUTHENTICATION** |   |                 |          |          |         |
+| AUTH-001   | [Title]   | [Screen/Section] | [Type]  | High     | Not Run |
+| AUTH-002   | [Title]   | [Screen/Section] | [Type]  | Medium   | Not Run |
+| **CHECKOUT** |         |                 |          |          |         |
+| CHKOUT-001 | [Title]   | [Screen/Section] | [Type]  | High     | Not Run |
+| CHKOUT-002 | [Title]   | [Screen/Section] | [Type]  | Medium   | Not Run |
 ```
 
 ---
@@ -383,6 +384,7 @@ Environment: Mixed — Web + API
 
 - [ ] TC ID is unique and follows `ModuleName-001` format
 - [ ] Title follows format: `Verify <expected result> when <action/condition>` (or `Verify <state/observation>` for non-action tests)
+- [ ] Screen / Section is filled in — identifies the exact screen, page, or document section this TC maps to
 - [ ] Preconditions list all assumptions — nothing implied
 - [ ] Steps use the table format with at least 2 rows
 - [ ] Expected results are specific — exact messages or states quoted
