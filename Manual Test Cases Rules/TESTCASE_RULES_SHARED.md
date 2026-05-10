@@ -84,6 +84,7 @@ Every single test case MUST contain all of the following fields. A TC is not com
 |-------|----------|-------|
 | TC ID | YES | Format: `ModuleName-001`. Never reuse or skip. |
 | Screen / Section | YES | The screen name, page, or document section this TC maps to (e.g. `Login Page`, `Section 3.2 – Password Reset`, `Checkout – Step 2`). Used for requirement traceability. |
+| Requirement Summary | YES | Clear explanation of WHY this test is needed. Summarize the business requirement, user need, or risk being mitigated. Write for reviewers with less domain knowledge. Helps identify redundant TCs and validate test necessity. |
 | Title | YES | Verify <expected result> when <action/condition> |
 | Preconditions | YES | At least one bullet. Never leave blank. |
 | Steps table | YES | Min 2 steps. Action steps only. Each item on its own line within the cell. |
@@ -100,9 +101,9 @@ Every single test case MUST contain all of the following fields. A TC is not com
 
 When exporting test cases to Excel, columns must follow the same order as the mandatory fields above — left to right:
 
-| Column | A | B | C | D | E | F | G | H | I | J | K | L | M |
-|--------|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **Field** | TC ID | Screen / Section | Title | Preconditions | Steps (Action) | Expected Result | Test Data | Postconditions | Status | Priority | Type | Environment | Notes |
+| Column | A | B | C | D | E | F | G | H | I | J | K | L | M | N |
+|--------|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Field** | TC ID | Screen / Section | Requirement Summary | Title | Preconditions | Steps (Action) | Expected Result | Test Data | Postconditions | Status | Priority | Type | Environment | Notes |
 
 - Do not reorder, hide, or merge columns.
 - Column names in the header row must match exactly as listed above.
@@ -120,8 +121,8 @@ Never leave cells in overflow mode (text spilling into adjacent cells).
 
 | Alignment | Columns |
 |-----------|---------|
-| **Top** | Preconditions (D) · Steps / Action (E) · Expected Result (F) |
-| **Center** | TC ID (A) · Screen / Section (B) · Title (C) · Test Data (G) · Postconditions (H) · Status (I) · Priority (J) · Type (K) · Environment (L) · Notes (M) |
+| **Top** | Requirement Summary (C) · Preconditions (E) · Steps / Action (F) · Expected Result (G) |
+| **Center** | TC ID (A) · Screen / Section (B) · Title (D) · Test Data (H) · Postconditions (I) · Status (J) · Priority (K) · Type (L) · Environment (M) · Notes (N) |
 
 > Rule: Top alignment is applied to the three columns that contain multi-line content (bullet lists or numbered steps). All other columns use center alignment so short values do not float to the top of tall rows.
 
@@ -139,7 +140,23 @@ GOOD: Login-010: Verify login successfully with valid credentials
       Dashboard-011: Verify dashboard loads after successful login
 ```
 
-### Rule 02 — Title = action + condition
+### Rule 02 — Requirement Summary explains business purpose
+> The Requirement Summary column (Column C) must clearly explain WHY this test is necessary. It bridges the gap between the business requirement and the test case, making it easy for reviewers who lack domain knowledge. Always include:
+> - The business requirement or user need this test validates
+> - The risk or impact if this requirement fails
+> - The domain context (why this matters to the product)
+
+```
+BAD:  Testing login
+BAD:  Email validation
+GOOD: Verify users cannot access their account without a valid password — security requirement to prevent unauthorized access
+GOOD: Ensure expired payment methods are rejected during checkout — prevents fraudulent transactions and complies with PCI DSS
+GOOD: Validate that incorrect postal codes trigger an error — ensures accurate shipping calculations and reduces delivery failures
+```
+
+> **For Reviewers:** Use this column to quickly assess: Does this test make sense? Does it avoid duplication with adjacent TCs? Would a user or business stakeholder recognize this test as necessary?
+
+### Rule 03 — Title = action + condition
 > Titles must always start with verify followed by the action verb in -ing form or gerund phrase. The condition must be in the title for specific negative/edge cases.
 
 ```
@@ -151,7 +168,7 @@ GOOD: TC-006: Verify submitting checkout unsuccessfully with expired credit card
 
 Allowed verbs: `Submitting` · `Entering` · `Clicking` · `Navigating` · `Applying` · `Uploading` · `Deleting` · `Loading` · `Triggering` · `Sending` · `Canceling` · `Rejecting` · `Confirming` · `Displaying` · `Showing` · `Tapping` · `Swiping`
 
-### Rule 03 — Expected results must be specific
+### Rule 04 — Expected results must be specific
 > Never write vague expected results. Always quote the exact message, state, or value.
 
 ```
@@ -162,7 +179,7 @@ GOOD: Redirected to /dashboard with status 200
 GOOD: Order record created with status = PAID in database
 ```
 
-### Rule 04 — Steps use the table format only
+### Rule 05 — Steps use the table format only
 > Always write detailed steps from the beginning of the module/screen.
 > Never write steps as prose paragraphs. Always use `| # | Action | Expected Result |`.
 
@@ -179,7 +196,7 @@ GOOD:
 | 3 | Click "Sign In"                   | Redirected to /dashboard          |
 ```
 
-### Rule 05 — Test data goes in a fenced code block
+### Rule 06 — Test data goes in a fenced code block
 > Never embed test data inline in prose or in the steps table. Always use a separate code block.
 
 ```
@@ -191,7 +208,7 @@ password:  SecurePass123
 ​```
 ```
 
-### Rule 06 — Preconditions state every assumption
+### Rule 07 — Preconditions state every assumption
 > Write every setup requirement. Nothing implied. Include browser version, login state, data state.
 
 ```
@@ -203,7 +220,7 @@ GOOD:
 - Coupon DEMO20 exists and is active in the system
 ```
 
-### Rule 07 — Postconditions state system truth
+### Rule 08 — Postconditions state system truth
 > What must be true in the backend/database after the test passes — not just the UI.
 
 ```
@@ -215,7 +232,7 @@ GOOD:
 - Webhook fired to /webhook/payment-success
 ```
 
-### Rule 08 — Status stays Not Run until executed
+### Rule 09 — Status stays Not Run until executed
 > Never pre-fill PASS. A TC that hasn't been run is always Not Run.
 
 ```
@@ -223,10 +240,10 @@ BAD:  **Status:** PASS  ← written before the test is run
 GOOD: **Status:** Not Run
 ```
 
-### Rule 09 — Separate every TC with a horizontal rule
+### Rule 10 — Separate every TC with a horizontal rule
 > Use `---` between every test case. Never let two TCs visually merge.
 
-### Rule 10 — No abbreviations in titles
+### Rule 11 — No abbreviations in titles
 > Titles must be readable by someone unfamiliar with the project.
 
 ```
@@ -266,14 +283,14 @@ Every test case file must end with a summary table:
 ```markdown
 ## Summary
 
-| TC ID      | Screen / Section  | Title     | Type     | Priority | Status  |
-|------------|-------------------|-----------|----------|----------|---------|
-| **AUTHENTICATION** |             |           |          |          |         |
-| AUTH-001   | [Screen/Section]  | [Title]   | [Type]   | High     | Not Run |
-| AUTH-002   | [Screen/Section]  | [Title]   | [Type]   | Medium   | Not Run |
-| **CHECKOUT** |               |           |          |          |         |
-| CHKOUT-001 | [Screen/Section]  | [Title]   | [Type]   | High     | Not Run |
-| CHKOUT-002 | [Screen/Section]  | [Title]   | [Type]   | Medium   | Not Run |
+| TC ID      | Screen / Section  | Requirement Summary | Title     | Type     | Priority | Status  |
+|------------|-------------------|---------------------|-----------|----------|----------|---------|
+| **AUTHENTICATION** |             |                    |           |          |          |         |
+| AUTH-001   | [Screen/Section]  | [Why test needed]   | [Title]   | [Type]   | High     | Not Run |
+| AUTH-002   | [Screen/Section]  | [Why test needed]   | [Title]   | [Type]   | Medium   | Not Run |
+| **CHECKOUT** |               |                    |           |          |          |         |
+| CHKOUT-001 | [Screen/Section]  | [Why test needed]   | [Title]   | [Type]   | High     | Not Run |
+| CHKOUT-002 | [Screen/Section]  | [Why test needed]   | [Title]   | [Type]   | Medium   | Not Run |
 ```
 
 ---
@@ -402,6 +419,7 @@ Environment: Mixed — Web + API
 - [ ] TC ID is unique and follows `ModuleName-001` format
 - [ ] Title follows format: `Verify <expected result> when <action/condition>` (or `Verify <state/observation>` for non-action tests)
 - [ ] Screen / Section is filled in — identifies the exact screen, page, or document section this TC maps to
+- [ ] Requirement Summary is filled in — clearly explains WHY this test is needed, the business context, and the risk if it fails
 - [ ] Preconditions list all assumptions — nothing implied
 - [ ] Steps use the table format with at least 2 rows
 - [ ] Expected results are specific — exact messages or states quoted
@@ -432,6 +450,7 @@ These are the most common mistakes. Avoid them.
 | Anti-Pattern | Why It's Bad | Fix |
 |---|---|---|
 | Vague expected results ("error appears") | Tester must guess what "correct" looks like | Quote the exact message or state |
+| Vague or missing Requirement Summary | Reviewers don't understand why the test is needed; duplication goes undetected | Write the business need, risk, or domain context — assume reader has limited knowledge |
 | Prose steps instead of table | Slow to scan, easy to miss steps | Always use `\| # \| Action \| Expected Result \|` |
 | Test data embedded in prose | Not copy-paste ready; ambiguous values | Fenced code block, every time |
 | Pre-filling Status as PASS | Defeats the purpose of test tracking | Always start with Not Run |
