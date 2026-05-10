@@ -38,6 +38,12 @@ Every API TC must include the following inside the Steps or Test Data cells — 
 | Expected response fields | Expected Result | Quote exact field names and values |
 
 > Requirement traceability: Every API TC must include a requirement reference in the request metadata. Since API TCs are exported as Postman collections rather than Excel, this traceability must appear in the request description, Notes field, or pre-request script comment.
+> 
+> Start the request metadata with:
+> 
+> `The document/screen/section has mentioned that "<requirement related to this testcase>" — it means we need to consider this test case to verify the output.`
+> 
+> Follow that with a short business context note explaining the user interaction or system-triggered response being validated.
 
 ## 2. Steps Format for API TCs
 
