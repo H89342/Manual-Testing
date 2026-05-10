@@ -30,13 +30,14 @@ Every API TC must include the following inside the Steps or Test Data cells — 
 |-------|-------|---------|
 | HTTP Method | Step 1 action | `POST`, `GET`, `PUT`, `PATCH`, `DELETE` |
 | Endpoint | Step 1 action | `/api/v1/auth/login` |
+| Requirement reference | Request description / Notes | `US-123`, `API Spec v2 §4.2`, `Jira STORY-456`, `Figma API contract` |
 | Auth type | Preconditions | `Bearer token`, `API Key`, `No auth` |
 | Request headers | Test Data | `Content-Type: application/json` |
 | Request body | Test Data | Full JSON — never partial |
 | Expected status code | Expected Result | `200 OK`, `201 Created`, `400 Bad Request` |
 | Expected response fields | Expected Result | Quote exact field names and values |
 
----
+> Requirement traceability: Every API TC must include a requirement reference in the request metadata. Since API TCs are exported as Postman collections rather than Excel, this traceability must appear in the request description, Notes field, or pre-request script comment.
 
 ## 2. Steps Format for API TCs
 
@@ -201,6 +202,9 @@ A pre-script runs **before** the request is sent. Use it to prepare the environm
 
 **Standard pre-script template:**
 ```javascript
+// REQUIREMENT REFERENCE: [US-123 | API Spec v2 §4.2 | Jira STORY-456]
+// Business context: [Why this endpoint matters, what business flow it supports, and why the test exists]
+
 // 1. Set auth token from environment
 const token = pm.environment.get("access_token");
 pm.request.headers.add({ key: "Authorization", value: "Bearer " + token });
@@ -212,6 +216,8 @@ pm.environment.set("random_id", Math.random().toString(36).substring(2, 10));
 // 3. Clear stale chained variables from previous run
 pm.environment.unset("response_order_id");
 ```
+
+> Reviewer guidance: The pre-script must include a short requirement reference plus a brief business context comment. This helps reviewers verify the intent without guessing or relying on AI-generated assumptions.
 
 **Open CQ warning block** — inject into the pre-script of every PENDING request:
 ```javascript
@@ -318,6 +324,9 @@ Collection: [Module Name] API Tests
 - Never hardcode tokens — always use `{{access_token}}`.
 - Group requests into folders by phase or feature area.
 - Each request name must start with the TC ID: `API-001: Verify ...`
+- Every request must include a requirement reference in the request description or Notes: `US-123`, `API Spec v2 §4.2`, `Jira STORY-456`, or equivalent.
+- Use the request description to summarize the business intent and trace it back to the requirement source.
+- Always export and deliver the Postman collection JSON file with the API TC package so the user can import it immediately. This avoids needing a second request if the API test case was created without explicit export instructions.
 - Requests with open CQs must be prefixed `[PENDING]` and must not be run until the CQ is closed.
 - Regenerate and commit the JSON file every time a TC or CQ is added, updated, or closed.
 
