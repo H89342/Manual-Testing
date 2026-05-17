@@ -1,0 +1,140 @@
+---
+status: Draft
+version: v1
+created: YYYY-MM-DD
+author: [Your name]
+---
+
+# Requirement Intake — [Feature Name]
+
+> **How to use:** Copy this file, rename to `req-[feature-name]_v1.md`, and fill in every section. Mark sections N/A only if genuinely not applicable — do not leave blank.
+
+---
+
+## 1. Source & Reference
+
+| Field | Value |
+|---|---|
+| Feature / Story ID | e.g. JIRA-123 / US-045 |
+| Source document | e.g. BRD v2.1 Section 3.4 / Figma link / Confluence page |
+| Provided by | [PO / BA / Designer name] |
+| Date received | YYYY-MM-DD |
+| Target release / sprint | e.g. Sprint 12 / Release 3.2 |
+
+---
+
+## 2. Feature Summary
+
+**What is being built:**
+> [1–2 sentences. Plain English. No jargon.]
+
+**Why it is being built (business goal):**
+> [What problem does this solve? What value does it deliver?]
+
+**Who are the primary users:**
+> [User roles / personas affected — e.g. Admin, Customer, Guest]
+
+**Does this change affect existing features or workflows?**
+> [ ] Yes — describe: _______________
+> [ ] No
+
+---
+
+## 3. Key Screens / Flows / Sections Referenced
+
+List every screen, flow diagram, or document section that is relevant to this feature:
+
+| Reference | Type | Location / Link |
+|---|---|---|
+| e.g. Login Screen | UI Screen | Figma — Frame "Login v3" |
+| e.g. Section 3.1 | BRD section | BRD v2.1 page 5 |
+| e.g. Session Flow | Flow diagram | Confluence — Auth Flow Diagram |
+
+---
+
+## 4. Acceptance Criteria
+
+List every acceptance criterion exactly as written in the source:
+
+| # | Acceptance Criterion | Source location |
+|---|---|---|
+| AC-01 | [paste exact wording] | [section / screen] |
+| AC-02 | [paste exact wording] | [section / screen] |
+| AC-03 | [paste exact wording] | [section / screen] |
+
+---
+
+## 5. Requirement Type
+
+Check all that apply:
+
+- [ ] Functional — user-facing behaviour, business rules, workflows
+- [ ] Non-functional — performance, security, accessibility, compatibility
+- [ ] Integration — data flow between systems, APIs, third-party services
+- [ ] UI/UX — visual design, interaction, layout
+- [ ] API/Contract — endpoints, payloads, response codes
+
+---
+
+## 6. In Scope vs Out of Scope
+
+| In Scope | Out of Scope |
+|---|---|
+| [what IS being tested this release] | [what is NOT being tested — explicitly exclude] |
+
+---
+
+## 7. Dependencies & Integrations
+
+| Dependency | Type | Owner | Status |
+|---|---|---|---|
+| e.g. Auth Service | API | Backend team | Ready / Not ready |
+| e.g. Payment Gateway | 3rd party | [team] | Mock / Live |
+
+---
+
+## 8. Non-Functional Requirements
+
+| Category | Requirement | Source |
+|---|---|---|
+| Performance | e.g. Page loads in < 2 sec | BRD Section 5.1 |
+| Security | e.g. PII fields must be masked | Compliance policy |
+| Accessibility | e.g. WCAG 2.1 AA | Design spec |
+| Compatibility | e.g. Chrome, Safari, iOS 16+ | BRD Section 6 |
+
+*Leave N/A if not specified — but flag as a question in `/03-qa`.*
+
+---
+
+## 9. Test Data Requirements
+
+| Data needed | Format / values | How to obtain |
+|---|---|---|
+| e.g. Valid user account | email + password | Test DB seed |
+| e.g. Invalid card number | 4111111111111112 | Hardcoded test value |
+
+---
+
+## 10. Initial Observations & Risks
+
+Note anything that looks unclear, missing, risky, or likely to cause problems during testing:
+
+| # | Observation | Risk level | Action needed |
+|---|---|---|---|
+| 1 | [observation] | High / Medium / Low | [raise in Q&A / escalate / confirm with PO] |
+
+---
+
+## 11. Change Log
+
+| Version | Date | Changed by | What changed |
+|---|---|---|---|
+| v1 | YYYY-MM-DD | [name] | Initial intake |
+
+---
+
+## Next Step
+
+- [ ] Run `/01-read-requirements` for AI-assisted summary review
+- [ ] Run `/02-analyze` for deep analysis
+- [ ] Run `/03-qa` to generate Q&A checklist
