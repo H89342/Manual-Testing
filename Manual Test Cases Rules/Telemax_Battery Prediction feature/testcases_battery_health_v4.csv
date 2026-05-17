@@ -1,0 +1,535 @@
+TC ID,Screen / Section,Requirement Summary,Title,Preconditions,Steps (Action),Expected Result,Test Data,Postconditions,Status,Priority,Type,Environment,Notes
+BATT-001,Battery Health & Replacement Forecast — §3.1 REST Signal,"REST contributes up to 30 pts of the 100-point Health Score. The top tier (≥12.70 V mean rest voltage) maps to 30 pts (Excellent). If wrong, a healthy battery scores low and triggers false replacement forecasts.",Verify scoring REST signal as 30 pts when 30-day mean rest_voltage_avg is ≥ 12.70 V,"• Vehicle has ≥ 30 days of telemetry in the Flespi tenant
+• Calc 2805151 (Rest Voltage) is enabled and producing rest_voltage_avg samples
+• 30-day mean rest_voltage_avg is engineered to be 12.72 V
+• Test user is logged in to Fleet Pulse and the vehicle row is visible on the dashboard","1. Open the Flespi calc 2805151 device messages and confirm at least 20 rest_voltage_avg samples in the last 30 days
+2. In Fleet Pulse, open the Health Score tooltip for the vehicle
+3. Read the REST score in the tooltip
+4. Trigger a manual score recalculation (or wait for the next 15-min cycle) and re-open the tooltip","1. Sample count ≥ 20 and the visible average reads 12.72 V (±0.01)
+2. Tooltip opens and the REST row is visible
+3. REST shows 30/30 with the Excellent status indicator (green)
+4. REST remains 30/30 — score is stable across recalc","vehicle_id: TLX-DEMO-001
+mean_rest_voltage_30d: 12.72 V
+sample_count: 24
+calc_id: 2805151","• REST score persisted as 30 in the score_history table
+• Overall battery_health_score reflects REST=30 in its breakdown payload",Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-002,Battery Health & Replacement Forecast — §3.1 REST Signal,"The Good tier (≥12.50 V and <12.70 V) must score 25 pts. Validates that the tier just below Excellent is correctly identified.",Verify scoring REST signal as 25 pts when 30-day mean rest_voltage_avg is in [12.50 V; 12.70 V),"• Vehicle has ≥ 30 days of telemetry
+• Mean rest_voltage_avg engineered to 12.55 V
+• User is logged in to Fleet Pulse","1. Confirm calc 2805151 reports 30-day mean = 12.55 V
+2. Open Health Score tooltip on the dashboard
+3. Read REST row","1. Mean reads 12.55 V (±0.01)
+2. Tooltip opens
+3. REST shows 25/30 with Good status (green)",mean_rest_voltage_30d: 12.55 V,• REST score persisted as 25 in score_history,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-003,Battery Health & Replacement Forecast — §3.1 REST Signal,"Fair tier (≥12.30 V and <12.50 V) scores 19 pts — first amber tier in the REST band.",Verify scoring REST signal as 19 pts when 30-day mean rest_voltage_avg is in [12.30 V; 12.50 V),"• Vehicle has ≥ 30 days of telemetry
+• Mean rest_voltage_avg engineered to 12.35 V","1. Confirm 30-day mean = 12.35 V in calc 2805151
+2. Open Health Score tooltip
+3. Read REST row","1. Mean reads 12.35 V
+2. Tooltip opens
+3. REST shows 19/30 with Fair status (amber)",mean_rest_voltage_30d: 12.35 V,• REST=19 persisted; tooltip dot colour is amber,Not Run,Medium,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-004,Battery Health & Replacement Forecast — §3.1 REST Signal,"NEW v4 coverage: Poor tier (≥12.00 V and <12.30 V) must score 10 pts. This 10-pt tier is operationally significant and was untested in v3 — the review flagged it as a High-priority gap.",Verify scoring REST signal as 10 pts when 30-day mean rest_voltage_avg is in [12.00 V; 12.30 V),"• Vehicle has ≥ 30 days of telemetry
+• Mean rest_voltage_avg engineered to 12.05 V","1. Confirm 30-day mean = 12.05 V in calc 2805151
+2. Open Health Score tooltip on Fleet Pulse
+3. Read REST row
+4. Repeat at boundary value 12.00 V exactly
+5. Repeat at 11.99 V","1. Mean reads 12.05 V
+2. Tooltip opens
+3. REST shows 10/30 with Poor status (orange)
+4. REST still shows 10/30 (≥12.00 V is inclusive)
+5. REST drops to 0/30 — boundary respected","mean_rest_voltage_30d: 12.05 V
+boundary_low: 12.00 V
+boundary_high: 12.29 V",• REST=10 persisted for 12.05 V case; REST=0 for 11.99 V case,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §3.1 gap (10-pt tier).
+BATT-005,Battery Health & Replacement Forecast — §3.1 REST Signal,"Critical tier (<12.00 V) scores 0 pts. Catches batteries that are functionally flat at rest — a leading indicator of imminent failure.",Verify scoring REST signal as 0 pts when 30-day mean rest_voltage_avg is < 12.00 V,"• Vehicle has ≥ 30 days of telemetry
+• Mean rest_voltage_avg engineered to 11.85 V","1. Confirm 30-day mean = 11.85 V
+2. Open Health Score tooltip
+3. Read REST row
+4. Check forecast pipeline outputs","1. Mean reads 11.85 V
+2. Tooltip opens
+3. REST shows 0/30 with Critical status (red)
+4. Forecast modifier ×0.5 (rest <11.8 V) has fired in the modifier list",mean_rest_voltage_30d: 11.85 V,• REST=0 persisted; rest<11.8 V forecast modifier flagged in forecast_audit,Not Run,High,Negative,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-006,Battery Health & Replacement Forecast — §3.1 REST Signal,"Neutral fallback: when no rest_voltage_avg samples exist (new vehicle; calc disabled); REST scores 15 pts to avoid penalising a vehicle for missing data.",Verify scoring REST signal as 15 pts neutral fallback when no rest_voltage_avg samples are present,"• Vehicle is newly onboarded with < 24 h of telemetry; OR calc 2805151 has been disabled
+• No rest_voltage_avg samples exist in the 30-day window","1. Confirm calc 2805151 returns zero samples for the vehicle
+2. Open Health Score tooltip
+3. Read REST row","1. Sample count = 0
+2. Tooltip opens
+3. REST shows 15/30 with Neutral (grey) status and tooltip text 'Insufficient rest data'","sample_count: 0
+window: last 30 days",• REST=15 persisted with fallback_reason='no_rest_data',Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-007,Battery Health & Replacement Forecast — §3.1 REST Signal,"The 12.70 V tier boundary must score 30 pts at exactly 12.70 V and 25 pts at 12.69 V (inclusive lower bound). Edge case proves the comparison is ≥ and not >.",Verify REST score boundary transitions cleanly at 12.70 V (30 pts) vs 12.69 V (25 pts),"• Two test vehicles or two seeded data states — one at exactly 12.70 V mean; one at 12.69 V","1. Seed vehicle A with 30-day mean = 12.7000 V and trigger recalc
+2. Open tooltip for vehicle A
+3. Seed vehicle B with 30-day mean = 12.6900 V and trigger recalc
+4. Open tooltip for vehicle B","1. Recalc completes
+2. REST = 30/30
+3. Recalc completes
+4. REST = 25/30","vehicle_A.mean: 12.7000 V
+vehicle_B.mean: 12.6900 V",• A: REST=30; B: REST=25 in score_history,Not Run,High,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-008,Battery Health & Replacement Forecast — §3.1 REST Signal,"When live voltage is missing; the forecast must fall back to mean_rest as its reference voltage (ref_v = live_v if available else mean_rest). Without this; forecast cannot compute.",Verify forecast reference voltage falls back to mean rest voltage when live voltage is missing,"• Vehicle has a valid 30-day mean rest_voltage_avg = 12.40 V
+• Latest telemetry message has external.powersource.voltage = null (simulated by removing the last 6 h of msgs)","1. Confirm latest message lacks powersource.voltage
+2. Trigger forecast recalc
+3. Inspect forecast_audit.ref_voltage
+4. Open Health Score tooltip","1. Field is absent in raw payload
+2. Forecast pipeline runs without error
+3. ref_voltage == 12.40 V (mean rest) not 0 or null
+4. LATEST row shows neutral 5/10 and tooltip text 'Live voltage unavailable — using rest mean'","mean_rest_voltage_30d: 12.40 V
+latest_voltage: null",• forecast_audit.ref_voltage_source='rest_mean'; forecast completes successfully,Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-009,Battery Health & Replacement Forecast — §3.2 CRANK Signal,"Strong-cranking tier: minimum 30-day crank_dip (compensated to 25 °C) ≥ 10.0 V scores the full 25 pts. Validates the primary CRANK happy path.",Verify scoring CRANK signal as 25 pts when minimum compensated crank_dip is ≥ 10.0 V,"• Vehicle has ≥ 30 days of telemetry with at least 5 crank events
+• Min compensated crank_dip engineered to 10.10 V
+• Calc 2805150 (Crank Events) is enabled","1. Open calc 2805150 messages and confirm min crank_dip across the window
+2. Open Health Score tooltip
+3. Read CRANK row","1. Min raw crank_dip + temp comp = 10.10 V
+2. Tooltip opens
+3. CRANK shows 25/25 with Strong status (green)","min_crank_dip_compensated: 10.10 V
+events_in_window: 7",• CRANK=25 persisted,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-010,Battery Health & Replacement Forecast — §3.2 CRANK Signal,"20-pt tier boundary: ≥9.5 V scores 20; 9.4 V drops to 13 and additionally arms the ×0.5 forecast modifier. Validates dual-effect boundary.",Verify CRANK score and forecast modifier transitions cleanly at 9.5 V (20 pts) vs 9.4 V (13 pts + ×0.5),"• Two vehicles or seeded states — A: min crank_dip = 9.50 V; B: 9.40 V","1. Trigger recalc on vehicle A (9.50 V)
+2. Open tooltip for A
+3. Trigger recalc on vehicle B (9.40 V)
+4. Open tooltip for B","1. Recalc OK
+2. CRANK = 20/25; forecast modifier ×0.5 NOT armed
+3. Recalc OK
+4. CRANK = 13/25; forecast modifier ×0.5 armed in forecast_audit","vehicle_A.min_crank: 9.50 V
+vehicle_B.min_crank: 9.40 V",• A: modifier list empty for CRANK; B: modifier list contains 'crank<9.5_x0.5',Not Run,High,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-011,Battery Health & Replacement Forecast — §3.2 CRANK Signal,"NEW v4 coverage: 13-pt 'Marginal' tier (≥9.0 V and <9.5 V). Review §3.2 flagged this as a missing High-priority tier.",Verify scoring CRANK signal as 13 pts when minimum compensated crank_dip is in [9.0 V; 9.5 V),"• Vehicle has ≥ 5 crank events; min compensated dip engineered to 9.20 V","1. Confirm min compensated crank_dip = 9.20 V
+2. Open Health Score tooltip
+3. Read CRANK row
+4. Inspect forecast_audit","1. Reads 9.20 V
+2. Tooltip opens
+3. CRANK = 13/25 with Marginal status (amber)
+4. ×0.5 modifier armed (crank<9.5)",min_crank_dip_compensated: 9.20 V,• CRANK=13 persisted; forecast modifier list contains 'crank<9.5_x0.5',Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §3.2 gap (13-pt tier).
+BATT-012,Battery Health & Replacement Forecast — §3.2 CRANK Signal,"Poor tier (≥8.0 V and <9.0 V) scores 6 pts. Validates the third-worst CRANK band.",Verify scoring CRANK signal as 6 pts when minimum compensated crank_dip is in [8.0 V; 9.0 V),• Min compensated crank_dip engineered to 8.50 V,"1. Confirm min compensated dip = 8.50 V
+2. Open tooltip
+3. Inspect forecast_audit","1. Reads 8.50 V
+2. CRANK = 6/25 with Poor status (orange)
+3. ×0.5 modifier still armed (any value <9.5 V)",min_crank_dip_compensated: 8.50 V,• CRANK=6 persisted,Not Run,Medium,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-013,Battery Health & Replacement Forecast — §3.2 CRANK Signal,"Critical CRANK (<8.0 V) scores 0 pts AND triggers the ×0.5 high-internal-resistance forecast modifier. Highest-severity CRANK condition.",Verify scoring CRANK signal as 0 pts and arming ×0.5 forecast modifier when compensated crank_dip is < 8.0 V,• Min compensated crank_dip engineered to 7.5 V,"1. Confirm min compensated dip = 7.5 V
+2. Open tooltip
+3. Inspect forecast_audit
+4. Verify forecast value reflects ×0.5 multiplier","1. Reads 7.5 V
+2. CRANK = 0/25 with Critical status (red)
+3. Modifier list contains 'crank<9.5_x0.5'
+4. forecast_days <= 0.5 × base_days",min_crank_dip_compensated: 7.5 V,• CRANK=0 persisted; modifier applied in forecast pipeline,Not Run,High,Negative,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-014,Battery Health & Replacement Forecast — §3.2 CRANK Signal — temperature compensation,"Temperature compensation: crank_compensated = crank_observed + 0.025 × (25 − ambient_temp_c). Required so cold-morning measurements don't false-fail healthy batteries.",Verify CRANK temperature compensation formula adds 0.475 V when raw crank is 9.6 V at 6 °C ambient,"• Ambient temperature for the vehicle's location at the time of the crank event is 6 °C (from WeatherAPI)
+• Raw crank_dip captured by calc 2805150 = 9.60 V","1. Confirm raw crank_dip = 9.60 V at ambient 6 °C
+2. Open forecast_audit.compensated_crank_dip
+3. Open tooltip","1. Both values read correctly
+2. Equals 9.60 + 0.025×(25-6) = 10.075 V
+3. CRANK = 25/25 (Strong) — would have been 13/25 without compensation","raw_crank_dip: 9.60 V
+ambient_temp: 6.0 °C
+expected_compensated: 10.075 V",• forecast_audit.compensated_crank_dip ≈ 10.075 V (±0.005),Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-015,Battery Health & Replacement Forecast — §3.2 CRANK Signal — temperature compensation,"At ambient 25 °C the compensation factor is zero — raw == compensated. Sanity check the formula's baseline.",Verify CRANK temperature compensation adds zero adjustment at the 25 °C baseline,• Raw crank_dip = 9.60 V at ambient 25 °C,"1. Confirm raw crank_dip and temp
+2. Read compensated value","1. 9.60 V at 25 °C
+2. Equals 9.60 V (no adjustment)","raw_crank_dip: 9.60 V
+ambient_temp: 25 °C",• compensated_crank_dip == raw_crank_dip,Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-016,Battery Health & Replacement Forecast — §3.2 CRANK Signal — REST fallback,"When no crank events in 30 days; CRANK falls back proportionally to REST: CRANK = round(25 × rest_pts / 30). Validates fallback existence and accuracy.",Verify CRANK signal falls back to round(25 × REST/30) when no crank events exist in 30-day window,"• Vehicle has zero crank events in the 30-day window (e.g. parked in yard)
+• REST scored 25/30","1. Confirm calc 2805150 returns 0 events
+2. Open tooltip and read REST and CRANK rows
+3. Repeat with REST=30/30
+4. Repeat with REST=0/30","1. Event count = 0
+2. REST = 25/30; CRANK = 21/25 (round(25×25/30)=20.83→21)
+3. CRANK = 25/25
+4. CRANK = 0/25","crank_events_count: 0
+rest_pts: 25 (then 30; then 0)
+expected_crank: 21; 25; 0",• CRANK persisted with fallback_reason='no_crank_events',Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-017,Battery Health & Replacement Forecast — §3.2 CRANK Signal — calculator config,"Regression: calc 2805150 selector MUST use min_active=0 with merge_message_before/after=true. Without this; 99% of crank events are missed (April 28 fix).",Verify calc 2805150 captures cranks correctly with min_active=0 and merge_message_before/after=true,• Vehicle drove ≥ 5 ignition cycles in a test session,"1. Open calc 2805150 config in Flespi
+2. Count ignition OFF→ON transitions in raw telemetry for the test session
+3. Count crank events produced by calc 2805150
+4. Toggle merge_message_before/after to false and recount
+5. Restore configuration to true","1. min_active=0; merge_message_before=true; merge_message_after=true
+2. ≥ 5
+3. Matches transition count within ±1
+4. Event count drops by ≥ 90% — confirms regression
+5. Config is restored","config.min_active: 0
+config.merge_message_before: true
+config.merge_message_after: true",• Calc config matches required values; production capture rate ≥ 95%,Not Run,High,Regression,Mixed — Web (Chrome 120+) + Backend (Flespi calc),Reverts the April 28 misconfiguration bug.
+BATT-018,Battery Health & Replacement Forecast — §3.3 TREND Signal,"TREND scores 12 pts when the linear-regression slope of rest_voltage_avg over 30 days is ≥ −0.003 V/day (stable or improving). Top tier of the TREND signal.",Verify scoring TREND signal as 12 pts when 30-day rest voltage regression slope is ≥ −0.003 V/day,"• ≥ 20 rest_voltage_avg samples spanning ≥ 28 days
+• Slope engineered to −0.001 V/day (stable)","1. Open the trend analysis output and confirm slope
+2. Open tooltip","1. Slope = −0.001 V/day
+2. TREND row shows 12/12 with Stable status (green)","slope_per_day: -0.001 V/day
+sample_count: 24",• TREND=12 persisted,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-019,Battery Health & Replacement Forecast — §3.3 TREND Signal,"Mild-decline tier (≥ −0.008 and < −0.003 V/day) scores 9 pts. Indicates a gentle downward trend that does not yet warrant alarm.",Verify scoring TREND signal as 9 pts when 30-day slope is in [−0.008; −0.003) V/day,• Slope engineered to −0.005 V/day,"1. Confirm slope = −0.005 V/day
+2. Open tooltip","1. Reads −0.005
+2. TREND = 9/12 (Mild decline; green-amber)",slope_per_day: -0.005 V/day,• TREND=9 persisted,Not Run,Medium,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-020,Battery Health & Replacement Forecast — §3.3 TREND Signal,"NEW v4 coverage: 5-pt tier (≥ −0.015 V/day and < −0.008 V/day). Review §3.3 flagged this as a missing High-priority tier.",Verify scoring TREND signal as 5 pts when 30-day slope is in [−0.015; −0.008) V/day,• Slope engineered to −0.012 V/day,"1. Confirm slope = −0.012 V/day
+2. Open tooltip
+3. Confirm TREND↓ badge fires in Status column","1. Reads −0.012
+2. TREND = 5/12 with Declining status (amber)
+3. TREND↓ badge visible on the row",slope_per_day: -0.012 V/day,• TREND=5 persisted; TREND↓ badge active,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §3.3 gap (5-pt tier).
+BATT-021,Battery Health & Replacement Forecast — §3.3 TREND Signal,"Critical decline (< −0.015 V/day) scores 0 pts — battery is losing ≥ 0.45 V over 30 days; an accelerating-failure signature.",Verify scoring TREND signal as 0 pts when 30-day slope is < −0.015 V/day,• Slope engineered to −0.020 V/day,"1. Confirm slope = −0.020 V/day
+2. Open tooltip
+3. Confirm TREND↓ badge fires","1. Reads −0.020
+2. TREND = 0/12 with Critical (red) status
+3. TREND↓ visible and uses red tone",slope_per_day: -0.020 V/day,• TREND=0 persisted,Not Run,High,Negative,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-022,Battery Health & Replacement Forecast — §3.3 TREND Signal — regression x-axis fix,"Regression: x-axis for slope regression MUST be (interval_begin + interval_end) / 2; NOT the calc timestamp. v2.0 had this wrong and masked BMW battery instability.",Verify TREND regression x-axis uses interval midpoint not the calc emission timestamp,"• Test dataset with 25 rest intervals where interval midpoint differs from calc timestamp by ≥ 30 min
+• Reference slope computed via midpoint = −0.011 V/day; using timestamp incorrectly yields −0.004 V/day","1. Run TREND regression on the dataset
+2. Confirm slope = −0.011 V/day (midpoint method)
+3. Inspect the implementation/audit log
+4. Open tooltip","1. Pipeline emits slope value
+2. Matches reference within ±0.0005
+3. x_axis source field reads 'interval_midpoint'
+4. TREND scores 5/12 (matches midpoint slope; not 9/12 which timestamp method would produce)","expected_slope: -0.011 V/day
+x_axis_source: interval_midpoint",• TREND audit confirms midpoint method; no v2.0 regression,Not Run,High,Regression,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-023,Battery Health & Replacement Forecast — §3.3 TREND Signal — neutral fallback,"NEW v4 coverage: when sample count is insufficient for regression (e.g. <10 rest samples); TREND falls back to 6 pts neutral. Review §3.3 flagged this as untested.",Verify scoring TREND signal as 6 pts neutral fallback when fewer than 10 rest samples exist in the 30-day window,• Vehicle has only 7 rest_voltage_avg samples in the last 30 days,"1. Confirm sample count = 7
+2. Run regression
+3. Open tooltip","1. Count = 7
+2. Pipeline skips regression and emits fallback
+3. TREND = 6/12 with Neutral (grey) status and tooltip text 'Not enough data for trend'","sample_count: 7
+threshold: 10",• TREND=6 persisted with fallback_reason='insufficient_samples',Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §3.3 neutral-fallback gap.
+BATT-024,Battery Health & Replacement Forecast — §3.4 DECAY Signal,"DECAY scores 13 pts (max) when the parked decay slope is ≤ 0.003 V/hr — battery holds charge well across long parks. Top tier.",Verify scoring DECAY signal as 13 pts when parked decay slope is ≤ 0.003 V/hr,"• Vehicle has ≥ 3 qualifying parks (≥ 6 h; start voltage ≤ 13.5 V) in 30-day window
+• Calc 2805232 (Parked Voltage Decay) is enabled
+• Mean decay slope engineered to 0.0020 V/hr","1. Inspect calc 2805232 outputs
+2. Open tooltip","1. Mean slope = 0.0020 V/hr
+2. DECAY = 13/13 with Excellent status (green)","mean_decay_slope: 0.0020 V/hr
+qualifying_parks: 4",• DECAY=13 persisted,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-025,Battery Health & Replacement Forecast — §3.4 DECAY Signal,"Boundary check: 0.003 V/hr → 13 pts; 0.0031 V/hr → 10 pts; 0.0061 V/hr → 7 pts; 0.0151 V/hr → 0 pts. Three boundary transitions in one TC.",Verify DECAY score boundary transitions at 0.003 0.006 and 0.015 V/hr thresholds,• Four seeded states: 0.0030; 0.0031; 0.0061; 0.0151 V/hr,"1. Seed slope = 0.0030 V/hr and recalc
+2. Seed slope = 0.0031 V/hr and recalc
+3. Seed slope = 0.0061 V/hr and recalc
+4. Seed slope = 0.0151 V/hr and recalc","1. DECAY = 13/13
+2. DECAY = 10/13
+3. DECAY = 7/13
+4. DECAY = 0/13 + ×0.7 forecast modifier armed","boundaries: 0.0030 / 0.0031 / 0.0061 / 0.0151 V/hr
+expected: 13 / 10 / 7 / 0 pts",• All four boundary scores persisted correctly,Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-026,Battery Health & Replacement Forecast — §3.4 DECAY Signal,"NEW v4 coverage: 7-pt tier (0.006 V/hr < slope ≤ 0.010 V/hr). Review §3.4 flagged this as a missing High-priority tier.",Verify scoring DECAY signal as 7 pts when parked decay slope is in (0.006; 0.010] V/hr,• Mean decay slope engineered to 0.008 V/hr,"1. Confirm slope = 0.008 V/hr
+2. Open tooltip
+3. Inspect forecast_audit","1. Reads 0.008
+2. DECAY = 7/13 with Watch status (amber)
+3. DECAY ×0.7 modifier NOT armed (only fires when slope > 0.015)",mean_decay_slope: 0.008 V/hr,• DECAY=7 persisted; no decay modifier in forecast,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §3.4 gap (7-pt tier).
+BATT-027,Battery Health & Replacement Forecast — §3.4 DECAY Signal,"Critical DECAY (>0.015 V/hr) scores 0 pts AND triggers the ×0.7 self-discharge forecast modifier. Worst DECAY band.",Verify scoring DECAY signal as 0 pts and arming ×0.7 forecast modifier when parked decay slope > 0.015 V/hr,• Mean decay slope engineered to 0.020 V/hr,"1. Confirm slope = 0.020 V/hr
+2. Open tooltip
+3. Inspect forecast_audit","1. Reads 0.020
+2. DECAY = 0/13 with Critical (red) status
+3. Modifier list contains 'decay>0.015_x0.7'",mean_decay_slope: 0.020 V/hr,• DECAY=0 persisted; forecast ×0.7 applied,Not Run,High,Negative,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-028,Battery Health & Replacement Forecast — §3.4 DECAY Signal — data cleanup rules,"Two mandatory data-cleanup rules in DECAY: drop parks shorter than 6 h (noise) AND parks where start voltage > 13.5 V (alternator tail not yet decayed).",Verify DECAY pipeline drops parks shorter than 6 h and parks starting above 13.5 V before computing slope,"• Test dataset of 10 parks: 5 valid (≥6 h and start ≤13.5 V); 3 short (4-5 h); 2 with start voltage 13.6-13.9 V","1. Run DECAY pipeline on the dataset
+2. Inspect intermediate 'qualifying_parks' list
+3. Inspect calc 2805232 config
+4. Verify slope is computed only over the 5 valid parks","1. Pipeline completes
+2. Count = 5; the 3 short and 2 high-start parks are excluded
+3. merge_message_before/after = false (so alternator voltage doesn't contaminate park edges)
+4. Audit shows 5 contributing intervals","parks_total: 10
+parks_qualifying: 5
+parks_dropped_short: 3
+parks_dropped_high_v: 2
+config.merge_before: false
+config.merge_after: false",• Only 5 parks contributed to DECAY slope,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-029,Battery Health & Replacement Forecast — §3.4 DECAY Signal — slope clamping,"Negative slope (start < end during a park) is a surface-charge artefact; not real recovery. Slope must be clamped to ≥0.",Verify DECAY slope is clamped to zero when a park shows negative voltage change,"• One park where start = 12.30 V; end = 12.35 V over 8 h (artefact)","1. Run DECAY pipeline on the artefact park
+2. Inspect that park's contribution to slope
+3. Confirm no negative slopes propagate into mean","1. Pipeline completes
+2. Raw slope = −0.00625 V/hr; clamped slope = 0.000 V/hr
+3. Mean slope uses 0.000 from this park; not the negative value","park.start_v: 12.30
+park.end_v: 12.35
+park.duration_h: 8
+expected_clamped: 0.000 V/hr",• DECAY mean computed correctly with clamped values,Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-030,Battery Health & Replacement Forecast — §3.4 DECAY Signal — neutral fallback,"NEW v4 coverage: when no qualifying parks exist in 30-day window; DECAY falls back to 7 pts neutral. Review §3.4 flagged this as untested.",Verify scoring DECAY signal as 7 pts neutral fallback when no qualifying parks exist in the 30-day window,• Vehicle has no parks ≥ 6 h with start voltage ≤ 13.5 V in 30 days,"1. Confirm qualifying_parks = 0
+2. Open tooltip","1. Count = 0
+2. DECAY = 7/13 with Neutral (grey) status and text 'No qualifying park data'",qualifying_parks: 0,• DECAY=7 persisted with fallback_reason='no_qualifying_parks',Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §3.4 neutral-fallback gap.
+BATT-031,Battery Health & Replacement Forecast — §3.5 CHARGE Signal,"CHARGE (v2.2 NEW) scores 10 pts when hit_absorption% ≥ 95% AND short-trip% < 50%. Top tier; vehicles whose duty cycle keeps the battery well-charged.",Verify scoring CHARGE signal as 10 pts when hit_absorption% is ≥ 95 and short_trip% is < 50,"• Calc 2809220 enabled; ≥ 20 trips in 30-day window
+• hit_absorption% engineered to 96%; short_trip% to 35%","1. Confirm calc 2809220 metrics
+2. Open tooltip
+3. Confirm Status column","1. abs%=96; short%=35
+2. CHARGE = 10/10 Excellent (green)
+3. No CHARGE↓ or SHORT↓ badge","hit_absorption_pct: 96
+short_trip_pct: 35
+trips_in_window: 24",• CHARGE=10 persisted,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-032,Battery Health & Replacement Forecast — §3.5 CHARGE Signal,"7-pt tier: hit_absorption% ≥ 90 AND short_trip% < 70 (and not in 10-pt tier). Validates the middle band.",Verify scoring CHARGE signal as 7 pts when hit_absorption% is in [90; 95) and short_trip% < 70,• abs%=92; short%=60,"1. Confirm metrics
+2. Open tooltip","1. abs%=92; short%=60
+2. CHARGE = 7/10 Good","hit_absorption_pct: 92
+short_trip_pct: 60",• CHARGE=7 persisted,Not Run,Medium,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-033,Battery Health & Replacement Forecast — §3.5 CHARGE Signal,"4-pt tier: hit_absorption% ≥ 80 (short trip not constrained in spec). PENDING CQ-002 — needs clarification on short% interaction.",Verify scoring CHARGE signal as 4 pts when hit_absorption% is in [80; 90),• abs%=82; short%=85 (high short trips to expose CQ-002 ambiguity),"1. Confirm metrics
+2. Open tooltip
+3. Capture actual vs CQ resolution and update post-CQ","1. abs%=82; short%=85
+2. CHARGE shows score per current implementation (record actual)
+3. Notes record actual score; verify against CQ-002 answer when received","hit_absorption_pct: 82
+short_trip_pct: 85",• CHARGE score persisted; CQ-002 referenced in Notes,Not Run,Medium,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),🟧 PENDING - Blocked by CQ-002 — see Clarify Requirements sheet
+BATT-034,Battery Health & Replacement Forecast — §3.5 CHARGE Signal,"0-pt tier: hit_absorption% < 80. Catches duty cycles too short to reach absorption — root cause of battery undercharging.",Verify scoring CHARGE signal as 0 pts when hit_absorption% is < 80,• abs%=72; short%=80,"1. Confirm metrics
+2. Open tooltip
+3. Confirm CHARGE↓ badge fires in Status column","1. abs%=72
+2. CHARGE = 0/10 Critical (red)
+3. Badge visible","hit_absorption_pct: 72
+short_trip_pct: 80",• CHARGE=0 persisted; CHARGE↓ badge active,Not Run,High,Negative,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-035,Battery Health & Replacement Forecast — §3.5 CHARGE Signal — speed filter,"Calc 2809220 must only count messages when engine is running AND speed > 5 km/h. Filters out idling/cranking artefacts.",Verify CHARGE calculator filters out messages when speed is ≤ 5 km/h or engine is off,• Seeded trip with 10 idle messages (speed 0 km/h) and 30 driving messages (speed 30 km/h),"1. Inspect calc 2809220 selector
+2. Inspect captured messages for the trip","1. Selector requires engine.on=true AND speed>5
+2. Only the 30 driving messages contribute","idle_msgs: 10 (speed=0 km/h)
+driving_msgs: 30 (speed=30 km/h)
+expected_contributing: 30",• Only driving messages contribute to CHARGE metrics,Not Run,Medium,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-036,Battery Health & Replacement Forecast — §3.5 CHARGE Signal — neutral fallback,"NEW v4 coverage: when no trips occur in 30-day window; CHARGE falls back to 5 pts neutral (applies to newly onboarded vehicles and vehicles parked 30+ days). Review §3.5 flagged this as untested.",Verify scoring CHARGE signal as 5 pts neutral fallback when no trips exist in the 30-day window,• Vehicle parked for full 30-day window — zero trips,"1. Confirm trips_in_window = 0
+2. Open tooltip","1. Count = 0
+2. CHARGE = 5/10 Neutral (grey) with text 'No trips in window'",trips_in_window: 0,• CHARGE=5 persisted with fallback_reason='no_trips',Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §3.5 neutral-fallback gap.
+BATT-037,Battery Health & Replacement Forecast — §3.5 CHARGE Signal + Fleet Pulse: Status Column Spec,"NEW v4 coverage: SHORT↓ badge must fire when short-trip% > 70% even if hit_absorption% ≥ 95% (vehicle reaches absorption but on too few long trips).",Verify SHORT↓ badge fires when short_trip% exceeds 70% even when hit_absorption% is ≥ 95,• abs%=96; short%=78,"1. Confirm metrics
+2. Open Status column
+3. Open tooltip","1. abs%=96; short%=78
+2. SHORT↓ badge visible (amber)
+3. CHARGE score per implementation; SHORT↓ pill labelled in summary","hit_absorption_pct: 96
+short_trip_pct: 78",• SHORT↓ badge fired; pill present in row,Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),🟧 PENDING - Blocked by CQ-001 — see Clarify Requirements sheet
+BATT-038,Battery Health & Replacement Forecast — §3.6 LATEST Signal,"LATEST scores 10 pts when the most recent external.powersource.voltage is ≥ 12.50 V. Real-time freshness signal.",Verify scoring LATEST signal as 10 pts when latest powersource voltage is ≥ 12.50 V,"• Latest message has external.powersource.voltage = 12.65 V; age < 2 h","1. Confirm latest message voltage
+2. Open tooltip","1. 12.65 V; fresh
+2. LATEST = 10/10 Excellent (green)","latest_voltage: 12.65 V
+message_age: 45 min",• LATEST=10 persisted,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-039,Battery Health & Replacement Forecast — §3.6 LATEST Signal,"Boundary verification at 12.20 V (7 pts) and 11.90 V (4 pts). Validates two tier transitions in one TC.",Verify LATEST score boundaries at 12.20 V (7 pts) and 11.90 V (4 pts),• Two seeded states: 12.20 V and 11.90 V,"1. Seed latest = 12.20 V and recalc
+2. Seed latest = 12.19 V and recalc
+3. Seed latest = 11.90 V and recalc
+4. Seed latest = 11.89 V and recalc","1. LATEST = 7/10
+2. LATEST = 4/10
+3. LATEST = 4/10
+4. LATEST = 0/10","boundaries: 12.20 / 12.19 / 11.90 / 11.89 V
+expected: 7 / 4 / 4 / 0 pts",• All four boundary scores correct,Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-040,Battery Health & Replacement Forecast — §3.6 LATEST Signal,"Critical tier (<11.90 V) scores 0 pts. Vehicle is in immediate trouble at this voltage.",Verify scoring LATEST signal as 0 pts when latest powersource voltage is < 11.90 V,• Latest voltage = 11.50 V,"1. Confirm latest = 11.50 V
+2. Open tooltip","1. Reads 11.50 V
+2. LATEST = 0/10 Critical (red)",latest_voltage: 11.50 V,• LATEST=0 persisted,Not Run,High,Negative,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-041,Battery Health & Replacement Forecast — §3.6 LATEST Signal — neutral fallback,"NEW v4 coverage: when no telemetry message exists (device offline >24 h or never reported); LATEST falls back to 5 pts neutral. Review §3.6 flagged this as untested.",Verify scoring LATEST signal as 5 pts neutral fallback when no telemetry message exists in last 24 h,• Device has no message in the last 24 h (offline),"1. Confirm no recent message
+2. Open tooltip","1. Last message age > 24 h
+2. LATEST = 5/10 Neutral (grey) with text 'No live data'",last_message_age_h: 48,• LATEST=5 persisted with fallback_reason='no_telemetry',Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §3.6 neutral-fallback gap.
+BATT-042,Battery Health & Replacement Forecast — §4 Forecast — Step 1 Base Projection,"Base forecast = (live_voltage − 11.5) / abs(slope_per_day); clamped to 0–90 days. Validates the core projection formula before modifiers.",Verify forecast base projection equals (live_voltage − 11.5) / abs(slope_per_day) clamped to 0–90 days,"• live_voltage=12.50 V; slope=−0.010 V/day → expected base = (12.5−11.5)/0.010 = 100 → clamp to 90 d","1. Seed inputs and trigger forecast
+2. Inspect forecast_audit.base_days
+3. Inspect forecast_audit.base_clamped","1. Forecast runs
+2. 100 (before clamp)
+3. 90 (after clamp to max 90)","live_voltage: 12.50 V
+slope_per_day: -0.010 V/day
+expected_base: 100 -> clamped 90",• forecast_audit.base_clamped = 90,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-043,Battery Health & Replacement Forecast — §4 Forecast — Step 1 (flat/positive slope),"When slope is flat (~0) or positive (stable battery); base is set to the 90-day ceiling regardless of voltage. Prevents division-by-zero and infinite forecasts.",Verify forecast base is set to 90 days when slope is flat (≈0) or positive,• live_voltage=12.40 V; slope=+0.001 V/day (positive),"1. Run forecast with positive slope
+2. Inspect base_days
+3. Repeat with slope = 0.0
+4. Repeat with slope = −1e-6 (essentially flat)","1. Forecast runs without error
+2. 90
+3. base_days = 90
+4. base_days = 90 (clamped from huge value)","slope_positive: +0.001
+slope_zero: 0.0
+slope_flat: -1e-6",• No division-by-zero errors; base capped at 90 d,Not Run,High,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-044,Battery Health & Replacement Forecast — §4 Forecast — Steps 2 & 3 (modifiers + redundancy guard),"Modifiers are multiplied after the redundancy guard de-duplicates correlated conditions (low REST + deep discharges = one penalty). Worst-case combined multiplier is 0.5 × 0.5 × 0.7 = 0.175.",Verify forecast applies modifier compounding correctly after redundancy guard de-duplicates correlated conditions,"• Vehicle has: crank<9.5 V (×0.5); mean_rest<11.8 V (×0.5); 2 deep discharges (×0.7)
+• Redundancy guard knows rest<11.8 V and deep_discharge are correlated → keep only harsher","1. Run forecast
+2. Inspect modifier_list_pre_guard
+3. Inspect modifier_list_post_guard
+4. Verify final multiplier","1. Forecast runs
+2. Contains all 3 modifiers
+3. Contains crank×0.5 and either rest×0.5 OR deep×0.7 (the harsher); not both
+4. Equals 0.5 × 0.5 = 0.25 (rest kept over deep) — base × 0.25","modifiers_in: crank<9.5 (×0.5); rest<11.8 (×0.5); deep>=2 (×0.7)
+expected_post_guard: crank<9.5; rest<11.8 (deep dropped)
+expected_multiplier: 0.25",• forecast_audit.final_multiplier = 0.25 ± 0.001,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-045,Battery Health & Replacement Forecast — §4 Forecast — Step 4 (14-day floor + Critical override),"Minimum forecast = 14 days. Any modifier stack that would push below 14 is clamped to 14; AND the band is forced to Critical regardless of score.",Verify forecast is clamped to 14 days and band is forced to Critical when modifier stack would push below 14,"• Seeded vehicle with base=60 d and combined multiplier=0.10 → would be 6 d before clamp
+• Score sums to 78 (Fair) — would normally band Fair; not Critical","1. Run forecast
+2. Inspect forecast_days_raw
+3. Inspect forecast_days_final
+4. Inspect final_band","1. Pipeline runs
+2. 6 (pre-clamp)
+3. 14 (clamped)
+4. Critical (forced override; despite score=78)","base_days: 60
+combined_multiplier: 0.10
+raw_forecast: 6
+expected_final: 14
+expected_band: Critical",• forecast=14; band=Critical; override_reason='floor_breach',Not Run,High,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),🟧 PENDING - Blocked by CQ-003 — see Clarify Requirements sheet
+BATT-046,Battery Health & Replacement Forecast — §4 Forecast — Replacement override,"If calc 2805166 (Battery Replacement) fires within 24 h; the forecast must reset to 90 days regardless of all other inputs.",Verify forecast resets to 90 days when calc 2805166 (Battery Replacement) fires within the last 24 hours,"• Vehicle had 14 d forecast before swap
+• Calc 2805166 emitted a replacement event 2 h ago","1. Inspect forecast_audit.replacement_event_age
+2. Inspect forecast_days_final
+3. Inspect band
+4. Confirm override is logged","1. 2 h
+2. 90 (override)
+3. Excellent (override drives band as well)
+4. forecast_audit.override_reason='battery_replacement'","calc_2805166_age_h: 2
+forecast_before: 14
+forecast_after: 90",• forecast=90; band=Excellent for 24 h after replacement event,Not Run,High,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-047,Battery Health & Replacement Forecast — §2 + §5 End-to-end,"Perfect 100 happy path: a healthy fleet vehicle scores all 6 signals at max and lands in the Excellent band with a 90-day forecast.",Verify a healthy vehicle scores 100 points end-to-end and lands in the Excellent band with 90-day forecast,"• All 6 signals at max: REST=30; CRANK=25; TREND=12; DECAY=13; CHARGE=10; LATEST=10
+• No modifiers should be armed","1. Run full pipeline
+2. Read total score
+3. Read forecast
+4. Read band
+5. Open tooltip","1. Pipeline completes
+2. 100
+3. 90 days
+4. Excellent (green)
+5. All 6 rows green; summary 'Battery is healthy'","rest:30 crank:25 trend:12 decay:13 charge:10 latest:10 -> 100
+expected_forecast: 90 d
+expected_band: Excellent",• score=100; forecast=90; band=Excellent,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-048,Battery Health & Replacement Forecast — §4 Forecast — clamp lower bound,"If base computation yields negative (live voltage already below 11.5 V floor); base must clamp to 0 — not become negative.",Verify forecast base is clamped to zero when live voltage is at or below the 11.5 V floor,• live_voltage=11.30 V; slope=−0.005 V/day → raw = −40,"1. Run forecast
+2. Inspect base_days_raw
+3. Inspect base_days_clamped
+4. Final forecast after floor
+5. Band","1. Runs without error
+2. −40
+3. 0
+4. 14 (forced by 14-day floor rule)
+5. Critical","live_voltage: 11.30 V
+slope: -0.005 V/day",• No negative forecast; final=14; band=Critical,Not Run,Medium,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-049,Battery Health & Replacement Forecast — §4 Forecast — Deep Discharge modifier,"Deep-discharge events ≥ 2 in 30 d apply ×0.7 forecast modifier — battery damaged by being run flat.",Verify forecast applies ×0.7 modifier when calc 2805152 records 2 or more deep-discharge events,• Calc 2805152 (Deep Discharge) fired 3 times in last 30 d; no other modifiers,"1. Inspect modifier list
+2. Compute expected
+3. Verify forecast value","1. Contains 'deep_discharge>=2_x0.7'
+2. forecast_final = base × 0.7
+3. Matches expectation within ±1 d rounding","deep_discharge_events: 3
+expected_modifier: 0.7",• forecast_audit shows ×0.7 applied,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-050,Battery Health & Replacement Forecast — §4 Forecast — Alternator Failure modifier,"≥ 1 alternator failure event (calc 2805149) applies ×0.6 modifier — charging system unreliable.",Verify forecast applies ×0.6 modifier when calc 2805149 records 1 or more alternator-failure events,• Calc 2805149 fired once in last 30 d; no other modifiers,"1. Inspect modifier list
+2. Verify forecast value","1. Contains 'alternator>=1_x0.6'
+2. = base × 0.6","alternator_events: 1
+expected_modifier: 0.6",• forecast_audit shows ×0.6 applied,Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-051,Battery Health & Replacement Forecast — §4 Forecast — CRANK modifier threshold,"NEW v4 coverage: ×0.5 CRANK forecast modifier must fire at any compensated crank <9.5 V (not only <8.0 V). A vehicle scoring 13 CRANK points still arms the modifier. Review §4.3 flagged this as untested.",Verify CRANK ×0.5 forecast modifier fires when compensated crank_dip is < 9.5 V even at the 13-pt scoring tier,• Compensated min crank_dip = 9.20 V (→ CRANK score 13 pts; see BATT-011),"1. Trigger pipeline
+2. Inspect CRANK score
+3. Inspect forecast_audit modifier_list
+4. Verify final forecast value","1. Runs
+2. 13/25
+3. Contains 'crank<9.5_x0.5'
+4. Has ×0.5 applied","min_crank_compensated: 9.20 V
+expected_score: 13
+expected_modifier: 0.5",• ×0.5 modifier active despite CRANK score being above 0,Not Run,High,Regression,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §4.3 gap.
+BATT-052,Battery Health & Replacement Forecast — §5 Health Bands,"Excellent band requires 95–100. Vehicle at 95 = Excellent; vehicle at 94 = Good. Validates the most prestige boundary.",Verify health band transitions cleanly from Excellent (95 pts) to Good (94 pts) at the 95-point boundary,• Two seeded scores: 95 and 94; both with forecast=90,"1. Seed score=95 and recalc
+2. Seed score=94 and recalc","1. Band = Excellent (green dot)
+2. Band = Good (green dot; different label)","score_a: 95
+score_b: 94
+forecast: 90 d",• A: band=Excellent; B: band=Good,Not Run,High,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-053,Battery Health & Replacement Forecast — §5 Health Bands — most-restrictive rule,"Vehicle lands in most-restrictive band triggered by either score OR forecast. Good score (85) with Poor forecast (25 d) must band Poor; not Good.",Verify band lands at the most-restrictive value when score and forecast disagree,• Score=85 (Good range); forecast=25 d (Poor range),"1. Run pipeline
+2. Inspect band
+3. Inspect band_audit","1. Runs
+2. Poor (orange) — driven by forecast; not score
+3. band_source='forecast'","score: 85
+forecast_days: 25",• band=Poor; band_audit.source='forecast',Not Run,High,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-054,Battery Health & Replacement Forecast — §5 Health Bands — Fair,"Fair band: score 65–79 OR forecast 30–44 days.",Verify Fair band when score is 72 and forecast is 38 days,• score=72; forecast=38 d,"1. Run pipeline
+2. Inspect band","1. Runs
+2. Fair (amber)","score: 72
+forecast_days: 38",• band=Fair,Not Run,Medium,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-055,Battery Health & Replacement Forecast — §5 Health Bands — Poor,"Poor band: score 50–64 OR forecast <30 days.",Verify Poor band when score is 57 and forecast is 32 days,• score=57; forecast=32 d (score drives Poor),"1. Run pipeline
+2. Inspect band","1. Runs
+2. Poor (orange)","score: 57
+forecast_days: 32",• band=Poor,Not Run,Medium,Functional,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-056,Battery Health & Replacement Forecast — §5 Health Bands — Critical,"Critical band when score <50 OR forecast <14 days. The hardest fail condition — REPLACE badge should fire.",Verify Critical band when total score is under 50,• score=42,"1. Run pipeline
+2. Inspect band
+3. Confirm REPLACE badge in Status column","1. Runs
+2. Critical (red)
+3. Visible",score: 42,• band=Critical; REPLACE badge active,Not Run,High,Negative,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-057,Battery Health & Replacement Forecast — §5 Health Bands — forecast override,"NEW v4 coverage: a Good-band score (e.g. 85) combined with a Fair-band forecast (30–44 d) must downgrade the row to Fair via the most-restrictive rule. Review §4.5 flagged this gap.",Verify Good score is downgraded to Fair band when forecast lands in [30; 45) days,• score=85 (Good); forecast=40 d (Fair),"1. Run pipeline
+2. Inspect band
+3. Inspect band_audit","1. Runs
+2. Fair — forecast wins
+3. band_source='forecast'; original_score_band='Good'","score: 85
+forecast_days: 40
+expected_band: Fair",• band=Fair; band_audit.source='forecast',Not Run,High,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §4.5 gap.
+BATT-058,Battery Health & Replacement Forecast — §2 Score Formula,"Sum of all signal maxes must equal 100. Guard against rebalancing arithmetic errors.",Verify the score formula maxes sum to exactly 100 points across all 6 signals in v2.2,• Pipeline running v2.2 weightings,"1. Inspect signal weight table
+2. Compute sum","1. REST 30 + CRANK 25 + TREND 12 + DECAY 13 + CHARGE 10 + LATEST 10
+2. = 100",weights: 30 + 25 + 12 + 13 + 10 + 10 = 100,• Sum-check passes,Not Run,High,Regression,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-059,Battery Health & Replacement Forecast — §2 Score Formula — v2.1→v2.2 regression,"v2.2 introduced CHARGE (+10) and rebalanced REST (35→30); TREND (15→12); DECAY (15→13). Make sure no production code still uses v2.1 weights.",Verify pipeline applies v2.2 weightings (REST=30 TREND=12 DECAY=13 CHARGE=10) and no longer uses v2.1 weightings,• Pipeline build = v2.2; reference vehicle scores known under both schemes,"1. Inspect signal weight configuration in code/config
+2. Re-score the reference vehicle","1. Matches v2.2 exactly
+2. Score matches v2.2 expectation; not v2.1","v2_1: rest=35; trend=15; decay=15; charge=0
+v2_2: rest=30; trend=12; decay=13; charge=10",• Score history shows the version stamp 'v2.2',Not Run,High,Regression,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-060,Battery Health & Replacement Forecast — §2 Score Formula — MURANO regression,"Real-world regression: MURANO vehicle scored 100/100 under v2.1 but dropped to 90/100 under v2.2 because CHARGE (72% absorption) was added. Use to lock the bug fix in place.",Verify MURANO test vehicle drops from 100 to 90 between v2.1 and v2.2 due to CHARGE signal addition,• MURANO reference dataset replayed against v2.1 and v2.2 pipelines,"1. Score MURANO with v2.1 pipeline
+2. Score MURANO with v2.2 pipeline
+3. Confirm band change","1. 100/100
+2. 90/100 — CHARGE = 0/10 (abs%=72); band = Good
+3. v2.1: Excellent; v2.2: Good","vehicle: MURANO
+v2_1_score: 100 (Excellent)
+v2_2_score: 90 (Good)
+charge_in_v2_2: 0/10 (abs=72%)",• Both scores reproducible; v2.2 reflects the duty-cycle reality,Not Run,High,Regression,Mixed — Web (Chrome 120+) + Backend (Flespi calc),
+BATT-061,Fleet Pulse: Status Column Spec — All badge triggers,"The renamed Status column must surface 8 badge types: DEEP DISCHARGE; ALTERNATOR; PARK DRAIN; TREND↓; CHARGE↓; SHORT↓; REPLACE; HEALTHY. Validate each fires under its precise trigger.",Verify all 8 Status column badges fire under their documented trigger conditions,• 8 seeded test vehicles; each engineered to trigger exactly one badge,"1. Seed deep_discharge_events=2 on vehicle 1
+2. Seed alternator_events=1 on vehicle 2
+3. Seed decay slope >0.015 V/hr on vehicle 3
+4. Seed slope < −0.008 V/day on vehicle 4
+5. Seed abs%<90 on vehicle 5
+6. Seed short%>70 on vehicle 6
+7. Seed score<50 or replacement event on vehicle 7
+8. Use clean healthy vehicle 8","1. DEEP DISCHARGE badge visible
+2. ALTERNATOR badge visible
+3. PARK DRAIN badge visible
+4. TREND↓ badge visible
+5. CHARGE↓ badge visible (pending CQ-001 threshold)
+6. SHORT↓ badge visible
+7. REPLACE badge visible
+8. HEALTHY badge visible (no other badge active)","vehicles: 8 seeded states
+badge_count_per_row: 1",• Each vehicle row shows exactly its expected badge,Not Run,High,Functional,Web (Chrome 120+; Firefox 121+; Safari 17+),🟧 PENDING - Blocked by CQ-007 (and CQ-001) — see Clarify Requirements sheet
+BATT-062,Fleet Pulse: Status Column Spec — Pill ordering,"When multiple badges fire on one row; pills must order by severity: red before amber before green. Drives operator attention to the worst signal first.",Verify multiple Status pills are ordered red then amber then green left-to-right on the row,"• Vehicle seeded with REPLACE (red); TREND↓ (amber); HEALTHY (green) — but HEALTHY should suppress when others fire","1. Open the row
+2. Confirm HEALTHY is suppressed when any other badge fires
+3. Repeat with: ALTERNATOR (red); CHARGE↓ (amber); SHORT↓ (amber)","1. Pills render in this order: REPLACE; TREND↓
+2. No green pill present
+3. Order: ALTERNATOR; CHARGE↓; SHORT↓","case_a: REPLACE + TREND↓
+case_b: ALTERNATOR + CHARGE↓ + SHORT↓",• Pills follow severity ordering rule,Not Run,Medium,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),
+BATT-063,Fleet Pulse: Status Column Spec — Overflow,"Maximum 3 visible pills per row; additional pills collapse into '+N more'. Prevents the column from growing arbitrarily wide.",Verify Status column shows at most 3 pills and renders '+N more' overflow when more pills are active,• Vehicle seeded with 5 simultaneous badges,"1. Open the row
+2. Confirm '+2 more' rendered after the 3rd pill
+3. Interact with '+2 more' chip per PRD","1. 3 pills visible (in severity order)
+2. Overflow chip visible
+3. Behaviour matches CQ-006 resolution (hover/click)","active_badges: REPLACE; ALTERNATOR; DEEP DISCHARGE; TREND↓; CHARGE↓ (5 total)
+expected_visible: 3
+expected_overflow_label: +2 more",• 3 pills + overflow chip rendered,Not Run,Medium,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),🟧 PENDING - Blocked by CQ-006 — see Clarify Requirements sheet
+BATT-064,Fleet Pulse: Status Column Spec — Always one pill,"At least one pill must always render. HEALTHY is shown when no other badges fire — ensures column never looks empty.",Verify HEALTHY pill is shown on rows where no other badges fire so the Status column never renders empty,• Reference healthy vehicle: score=100; no events,"1. Open the row
+2. Trigger any other badge (e.g. deep_discharge=2)
+3. Clear the trigger","1. Single HEALTHY pill (green) renders
+2. HEALTHY disappears; new badge takes its place
+3. HEALTHY re-appears","reference_vehicle: clean (no events)
+badge_count_expected: 1 (HEALTHY)",• Status cell always non-empty; HEALTHY appears only when alone,Not Run,Medium,Functional,Web (Chrome 120+; Firefox 121+; Safari 17+),
+BATT-065,Fleet Pulse: Status Column Spec — Plain-English summary line,"Each Status state should show a one-line plain-English summary below the pills. 9 combinations cover all canonical fleet scenarios.",Verify Status column renders the correct plain-English summary line for each of the 9 canonical badge combinations,• 9 seeded vehicles each in a canonical state per spec,"1. For each of 9 vehicles; open the row
+2. Validate exact strings letter-for-letter against the spec","1. Summary line matches PRD text
+2. All 9 strings match","combinations: 9 (per Status spec)
+expected_strings: see Health Score Tooltip Spec page",• All 9 summary strings rendered correctly,Not Run,Medium,Functional,Web (Chrome 120+; Firefox 121+; Safari 17+),🟧 PENDING - Blocked by CQ-005 — see Clarify Requirements sheet
+BATT-066,Fleet Pulse: Status Column Spec — Column sortability,"Status column must sort by worst severity per row (red > amber > green); not alphabetically. Drives the worst-first triage workflow.",Verify Status column sorts rows by worst-severity badge first (red > amber > green),• Fleet of 10 vehicles; varied badge mix,"1. Click the Status column header
+2. Inspect row order
+3. Click again to invert sort","1. Sort indicator appears
+2. Rows with a red badge are at the top; amber next; green last
+3. Order reverses correctly","vehicles: 10 mixed
+expected_order: red-first then amber then green",• Sort order matches severity rule,Not Run,Low,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),
+BATT-067,Fleet Pulse: Status Column Spec — Mobile narrow column behaviour,"On viewports < 600 px; the plain-English summary line must be hidden so badges remain readable. Pills themselves stay.",Verify Status column hides the summary line and keeps pills visible on viewports narrower than 600 px,• Open Fleet Pulse on a viewport sized 599 px wide,"1. Open Fleet Pulse at 599 px width
+2. Inspect a row with 2 badges + summary line
+3. Resize to 600 px","1. Status column renders
+2. Pills visible; summary line hidden
+3. Summary line becomes visible again",viewport: 599 px (hide); 600 px (show),• Summary line breakpoint behaves correctly,Not Run,Low,UI,Mobile (iOS 17+ / Android 13+),
+BATT-068,Fleet Pulse: Health Score Tooltip Spec — Open/close interactions,"Tooltip opens on hover (desktop) and on focus (keyboard). Closes on blur; mouseleave; or Escape. Critical for keyboard accessibility (WCAG 2.1).",Verify Health Score tooltip opens on hover/focus and closes on blur mouseleave and Escape,• Fleet Pulse dashboard open; any vehicle row visible,"1. Hover the Health Score chip
+2. Move pointer off the chip
+3. Tab focus to the chip via keyboard
+4. Press Escape
+5. Tab away from chip","1. Tooltip opens within 150 ms
+2. Tooltip closes
+3. Tooltip opens on focus
+4. Tooltip closes; focus retained on chip
+5. Tooltip closes on blur","trigger: hover; focus
+close: blur; mouseleave; Escape",• All 5 open/close interactions match spec,Not Run,Medium,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),
+BATT-069,Fleet Pulse: Health Score Tooltip Spec — Sub-signal rows,"Tooltip shows 6 rows (one per signal) with friendly labels (e.g. 'Rest voltage'; 'Cranking strength'). Should NOT show raw values or formula weights.",Verify Health Score tooltip renders 6 sub-signal rows with friendly labels (not raw values or weights),• Tooltip open on a vehicle row,"1. Read the 6 row labels
+2. Confirm no row shows raw V or V/hr
+3. Confirm no row shows weight (e.g. '/30')","1. REST→'Rest voltage'; CRANK→'Cranking strength'; TREND→'Trend'; DECAY→'Park drain'; CHARGE→'Charging quality'; LATEST→'Latest reading'
+2. No raw numbers displayed
+3. No '/N' weight tokens displayed",expected_labels: Rest voltage / Cranking strength / Trend / Park drain / Charging quality / Latest reading,• 6 rows present with the correct labels,Not Run,Medium,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),
+BATT-070,Fleet Pulse: Health Score Tooltip Spec — Dot colour thresholds,"Dot colour rule: ≥80% green; 40–79% amber; <40% red; where % = score / max for that signal. Drives the at-a-glance row colours.",Verify Health Score tooltip dot colours follow the ≥80% green / 40–79% amber / <40% red rule across all 6 rows,• 3 seeded vehicles producing one row at each colour,"1. Open tooltip on green-row vehicle
+2. Open tooltip on amber-row vehicle
+3. Open tooltip on red-row vehicle
+4. Test exactly at 40% boundary
+5. Test exactly at 80% boundary","1. All 6 dots green (each signal ≥80%)
+2. Each ≥40% and <80% renders amber
+3. Each <40% renders red
+4. Behaviour matches CQ-004 resolution
+5. Green per spec","thresholds: green ≥80%; amber 40-79%; red <40%
+boundary_cases: 40%; 80%",• Dot colours match thresholds at all percentages,Not Run,Medium,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),🟧 PENDING - Blocked by CQ-004 — see Clarify Requirements sheet
+BATT-071,Fleet Pulse: Health Score Tooltip Spec — No raw values / weights,"Tooltip is for non-technical operators. Formula weights (e.g. '/30') and raw V readings MUST NOT appear in the tooltip body.",Verify Health Score tooltip displays neither formula weights (e.g. /30) nor raw voltage values,• Tooltip open on a healthy vehicle,"1. Inspect tooltip body text
+2. Inspect tooltip body text
+3. Inspect tooltip body text","1. No occurrences of '/30'; '/25'; etc.
+2. No occurrences of 'V' or '°C' or 'V/day' values
+3. Only friendly labels and dot colours present",forbidden_tokens: /30 /25 /12 /13 /10 V V/hr V/day,• No forbidden tokens present in tooltip,Not Run,Medium,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),
+BATT-072,Fleet Pulse: Health Score Tooltip Spec — Band label colour,"Band label inside the tooltip is colour-coded per band hex (Excellent #1B873F; Good #2E7D32; Fair #F4A300; Poor #E76F00; Critical #C0392B).",Verify Health Score tooltip band label uses the documented hex colour for each of the 5 bands,• 5 seeded vehicles; one per band,"1. Open tooltip on Excellent vehicle
+2. Open tooltip on Good vehicle
+3. Open tooltip on Fair vehicle
+4. Open tooltip on Poor vehicle
+5. Open tooltip on Critical vehicle","1. Band label colour = #1B873F
+2. = #2E7D32
+3. = #F4A300
+4. = #E76F00
+5. = #C0392B",hexes: 1B873F 2E7D32 F4A300 E76F00 C0392B,• All 5 band labels render the correct hex,Not Run,Medium,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),
+BATT-073,Fleet Pulse: Health Score Tooltip Spec — Mobile modal,"On viewports < 480 px the tooltip must open as a tap-to-open modal sheet rather than an inline tooltip. Tap-anywhere-to-close dismisses.",Verify Health Score tooltip opens as a modal sheet on tap when viewport is narrower than 480 px,• Fleet Pulse open on mobile viewport 479 px wide,"1. Tap the Health Score chip
+2. Tap outside the modal
+3. Resize to 480 px and tap again","1. Modal sheet opens (full-width; centered)
+2. Modal closes
+3. Inline tooltip behaviour returns",viewport: 479 px (modal); 480 px (tooltip),• Breakpoint switches presentation correctly,Not Run,Low,UI,Mobile (iOS 17+ / Android 13+),
+BATT-074,Fleet Pulse: Status Column Spec + Fleet Pulse: Health Score Tooltip Spec,"All 6 sub-signal rows must fit inside the default tooltip viewport without internal scrolling. Visual sanity check.",Verify all 6 sub-signal rows are visible inside the Health Score tooltip without internal scrolling,• Browser viewport ≥ 1024 px wide; default zoom 100%,"1. Open tooltip on a vehicle row
+2. Count visible rows
+3. Confirm no scrollbar in tooltip body","1. Tooltip opens
+2. 6 sub-signal rows fully visible
+3. No scrollbar","viewport_min_width: 1024 px
+zoom: 100%",• No internal scroll on tooltip,Not Run,Medium,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),
+BATT-075,Battery Health & Replacement Forecast — §4 Forecast display,"Forecast must display as relative days (e.g. '47 days') NOT a calendar date. Avoids timezone confusion across the fleet.",Verify forecast is displayed as relative days (e.g. '47 days') not as a calendar date,• Vehicle with forecast=47 d,"1. Open the row
+2. Inspect DOM text","1. Forecast renders as '47 days'
+2. No date format (YYYY-MM-DD or similar) anywhere in the forecast cell","forecast_days: 47
+expected_display: '47 days'",• Display matches expected format,Not Run,Medium,UI,Web (Chrome 120+; Firefox 121+; Safari 17+),
+BATT-076,Battery Health & Replacement Forecast — §3.2 CRANK Signal (WeatherAPI),"NEW v4 coverage: when the vehicle has no GPS fix at the time of a crank event; WeatherAPI cannot resolve ambient temperature. The pipeline must fall back to the last-known fix within 7 days. Review §4.10 flagged this gap.",Verify CRANK temperature compensation falls back to the most recent GPS fix within 7 days when current fix is missing,"• Vehicle has a crank event with no concurrent GPS fix
+• Last known GPS fix was 3 days ago at a location whose WeatherAPI temp = 18 °C","1. Run CRANK pipeline on the event
+2. Inspect ambient_temp_source
+3. Inspect ambient_temp_c
+4. Inspect compensated_crank_dip","1. Pipeline runs
+2. 'last_known_fix_within_7d'
+3. 18 °C
+4. Computed using 18 °C; not 25 °C default","event_has_gps: false
+last_fix_age_days: 3
+last_fix_temp_c: 18",• forecast_audit.temp_source = 'last_known_fix_within_7d',Not Run,Low,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §4.10 gap (no GPS scenario).
+BATT-077,Battery Health & Replacement Forecast — §3.2 CRANK Signal (WeatherAPI),"NEW v4 coverage: when no GPS fix exists in the last 7 days either; the pipeline must fall back to the 25 °C baseline (zero adjustment) and flag the event. Review §4.10 flagged this gap.",Verify CRANK temperature compensation falls back to 25 °C baseline when no GPS fix exists within the last 7 days,• No GPS fix in the last 7 days for the vehicle,"1. Run CRANK pipeline on a crank event in this state
+2. Inspect ambient_temp_source
+3. Inspect ambient_temp_c
+4. Inspect compensation factor
+5. Inspect forecast_audit.warnings","1. Pipeline runs
+2. 'baseline_default'
+3. 25 °C
+4. 0.025 × (25 − 25) = 0 (no adjustment)
+5. Contains 'temp_fallback_baseline'","last_fix_age_days: 12
+fallback_temp_c: 25",• temp_source='baseline_default'; warning logged,Not Run,Low,Edge Case,Mixed — Web (Chrome 120+) + Backend (Flespi calc),New in v4 — closes review §4.10 gap (no fix within 7 d).

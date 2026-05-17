@@ -141,19 +141,7 @@ GOOD: Login-010: Verify login successfully with valid credentials
 ```
 
 ### Rule 02 — Requirement Summary explains business purpose
-> The Requirement Summary column (Column C) must clearly explain WHY this test is necessary. It bridges the gap between the business requirement and the test case, making it easy for reviewers who lack domain knowledge.
-> 
-> Start every Requirement Summary with:
-> 
-> `The document/screen/section has mentioned that "<requirement related to this testcase>" — it means we need to consider this test case to verify the output.`
-> 
-> Then add a short business context sentence in plain language, for example:
-> - something a human interacts with in the system, or
-> - something the system triggers to return to the user.
-> 
-> This helps reviewers understand the generated test case and the requirement without needing to read the original source.
-> 
-> Always include:
+> The Requirement Summary column (Column C) must clearly explain WHY this test is necessary. It bridges the gap between the business requirement and the test case, making it easy for reviewers who lack domain knowledge. Always include:
 > - The business requirement or user need this test validates
 > - The risk or impact if this requirement fails
 > - The domain context (why this matters to the product)
@@ -161,9 +149,9 @@ GOOD: Login-010: Verify login successfully with valid credentials
 ```
 BAD:  Testing login
 BAD:  Email validation
-GOOD: The document/screen/section has mentioned that "user login requires valid password" — it means we need to consider this test case to verify the output. In business terms, this ensures a human can authenticate and access their account only with valid credentials.
-GOOD: The document/screen/section has mentioned that "expired payment methods must be rejected" — it means we need to consider this test case to verify the output. In business terms, this prevents a user from completing checkout with invalid card data.
-GOOD: The document/screen/section has mentioned that "postal code must be validated for shipping calculation" — it means we need to consider this test case to verify the output. In business terms, this ensures the system returns correct delivery costs to the user.
+GOOD: Verify users cannot access their account without a valid password — security requirement to prevent unauthorized access
+GOOD: Ensure expired payment methods are rejected during checkout — prevents fraudulent transactions and complies with PCI DSS
+GOOD: Validate that incorrect postal codes trigger an error — ensures accurate shipping calculations and reduces delivery failures
 ```
 
 > **For Reviewers:** Use this column to quickly assess: Does this test make sense? Does it avoid duplication with adjacent TCs? Would a user or business stakeholder recognize this test as necessary?
@@ -445,7 +433,7 @@ Environment: Mixed — Web + API
 
 ### Per file
 
-- [ ] File is named `testcases_[feature-name]_v[version].md`
+- [ ] File is named `testcases_[module]_v[version].md`
 - [ ] File header (Overview table) is filled in completely
 - [ ] Execution Summary block (Section 12) is present and up to date after every run
 - [ ] Table of Contents lists all TCs

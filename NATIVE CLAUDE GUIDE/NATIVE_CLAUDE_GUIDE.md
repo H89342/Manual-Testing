@@ -79,15 +79,23 @@ prioritisation, and strict traceability to requirements at all times.
 ## Requirement intake
 When starting a new requirement, always use req-template.md as the structure.
 
+## Output format — always apply automatically, never wait to be asked
+- UI test cases → always produce two outputs:
+  1. Markdown (full test case format)
+  2. Excel-ready table with columns in this exact order: TC ID | Screen/Section | Requirement Summary | Title | Preconditions | Steps (Action) | Expected Result | Test Data | Postconditions | Status | Priority | Type | Environment | Notes
+  Label it: "### Excel Export — copy and paste into Excel"
+  Include a Clarify Requirements table for any PENDING TCs.
+- API test cases → always produce markdown + Postman Collection JSON. Never Excel for API.
+
 ## Workflow order — never skip or reorder steps
 1. Read & intake the requirement
 2. Analyze the requirement
 3. Generate Q&A checklist — resolve all CRITICAL questions before step 4
 4. Create test cases
 5. Review test cases
-6. Execute tests
-7. Report bugs
-8. Convert to automation script
+6. Execute tests — perform when requested
+7. Report bugs — perform when requested
+8. Convert to automation script — perform when requested
 ```
 
 ---
@@ -117,10 +125,14 @@ When starting a new requirement, always use req-template.md as the structure.
 
 | Step | Save to |
 |---|---|
-| Requirement intake | `.claude/workflows/01-requirements/[project]/req-[feature]_v1.md` |
-| Analysis + Q&A | `.claude/workflows/02-analysis/[project]/` |
-| Test cases + review | `.claude/workflows/03-test-cases/[project]/` |
-| Execution log | `.claude/workflows/04-execution/[project]/` |
-| Defect reports | `.claude/workflows/05-defects/[project]/` |
-| Summary report | `.claude/workflows/06-reports/[project]/` |
-| Automation scripts | `.claude/workflows/07-automation/[framework]/` |
+| Requirement intake | `[Project-Folder]/req-[feature]_v1.md` |
+| Analysis | `[Project-Folder]/analysis-[feature]_v1.md` |
+| Q&A checklist | `[Project-Folder]/qa-[feature]_v1.md` |
+| Test cases | `[Project-Folder]/testcases_[feature]_v1.md` |
+| Review report | `[Project-Folder]/review-[feature]_v1_[YYYY-MM-DD].md` |
+| Execution log | `[Project-Folder]/execution-[feature]_[YYYY-MM-DD].md` |
+| Defect reports | `[Project-Folder]/bug-[NNN]-[short-title].md` |
+| Summary report | `[Project-Folder]/report-[feature]_[YYYY-MM-DD].md` |
+| Automation scripts | `[Project-Folder]/auto_[feature]_[scenario].[ext]` |
+
+> `[Project-Folder]` = your project folder at the repo root, e.g. `Telemax/` or `Test case omrom/`
