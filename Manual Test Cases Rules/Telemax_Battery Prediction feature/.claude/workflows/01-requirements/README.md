@@ -1,86 +1,71 @@
 # 01 — Requirements
 
-This folder is the entry point of the SDET workflow. Every feature you test must start here before any analysis or test case is written.
+> **Artifacts do not store here.**
+> Filled requirement files save directly inside the project folder, per `CLAUDE.md` save rule.
+> Exception: `req-template.md` stays here permanently as the master template — never edit it directly.
 
 ---
 
-## Folder structure
+## Where artifacts are saved
 
+| Artifact | Save to |
+|---|---|
+| Requirement intake (filled) | `[Project-Folder]/req-[feature]_v1.md` |
+| Updated version | `[Project-Folder]/req-[feature]_v2.md` |
+| Raw BRD / spec paste | `[Project-Folder]/brd-[feature].md` |
+| UX / Figma notes | `[Project-Folder]/ux-[feature].md` |
+
+**Examples:**
 ```
-01-requirements/
-├── README.md
-├── req-template.md              ← MASTER TEMPLATE — never edit directly
-├── [project-name]/              ← one subfolder per project
-│   ├── req-[feature]_v1.md
-│   ├── req-[feature]_v2.md
-│   └── brd-[feature].md
-└── [another-project]/
-    └── req-[feature]_v1.md
+Telemax/req-battery-prediction_v1.md
+Telemax/req-battery-prediction_v2.md
+Telemax/brd-battery-prediction.md
 ```
 
-> **Rule:** Every project gets its own subfolder. Copy `req-template.md` into the project subfolder — never edit the master template directly.
+---
+
+## What stays in this folder (tooling only)
+
+| File | Purpose |
+|---|---|
+| `req-template.md` | Master template — copy to project folder, never edit here |
+| `README.md` | This file |
 
 ---
 
 ## How to start a new requirement
 
 ```
-1. Create a subfolder:  01-requirements/[your-project-name]/
-2. Copy the template:   req-template.md  →  [project-name]/req-[feature]_v1.md
-3. Fill in the copy — never touch req-template.md
-4. Run /01-read-requirements  (AI-assisted intake review)
-5. Run /02-analyze            (deep analysis)
-6. Run /03-qa                 (Q&A checklist)
+1. Copy req-template.md → [Project-Folder]/req-[feature]_v1.md
+2. Fill in your copy — never touch the master template
+3. Run /01-read-requirements  (AI-assisted intake review)
+4. Run /02-analyze            (deep analysis)
+5. Run /03-qa                 (Q&A checklist)
 ```
 
 ---
 
 ## Naming convention
 
-```
-[project-name]/req-[feature-name]_v[N].md
-```
-
-| Part | Description | Example |
+| Part | Rule | Example |
 |---|---|---|
-| `[project-name]/` | project subfolder | `telemax/`, `omrom/` |
 | `req-` | file prefix | `req-` |
-| `[feature-name]` | kebab-case short name | `user-login`, `payment-checkout` |
-| `_v[N]` | version, starts at v1 | `_v1`, `_v2` |
-
-**Examples:**
-- `telemax/req-user-login_v1.md`
-- `telemax/req-user-login_v2.md`  ← updated after Q&A feedback
-- `omrom/req-payment-checkout_v1.md`
+| `[feature-name]` | kebab-case | `battery-prediction`, `user-login` |
+| `_v[N]` | version from v1 | `_v1`, `_v2` |
 
 ---
 
-## Requirement version rules
+## Version rules
 
 - Start at `v1` for every new feature
-- Create a new version (`v2`, `v3`) when:
-  - Acceptance criteria change after Q&A
-  - Scope is added or removed mid-cycle
-  - Stakeholder changes the requirement after test cases are drafted
-- **Never overwrite** an existing version — always create a new file
-- Add a `## Change Log` entry to each new version explaining what changed and why
+- Create a new version (`v2`, `v3`) when requirements change after Q&A or after test cases are drafted
+- Never overwrite an existing version — always create a new file
+- Add a `## Change Log` entry to each new version
 
 ---
 
-## Status tracking
-
-Add this line at the top of every intake file:
+## Status line — add at top of every intake file
 
 ```
 **Status:** Draft | In Review | Confirmed | Superseded by v[N]
 ```
-
----
-
-## File types
-
-| File prefix | Purpose |
-|---|---|
-| `req-[feature]_vN.md` | Requirement intake (filled from template) |
-| `brd-[feature].md` | Raw BRD / spec paste — unedited source |
-| `ux-[feature].md` | UX notes, screen names, Figma references |

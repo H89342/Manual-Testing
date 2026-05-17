@@ -1,19 +1,48 @@
-# 05 — Defects
+# 05 — Defects (Reference Only)
 
-Store all defect reports logged during execution here.
+> **This folder does not store defect reports.**
+> Bug files save directly inside the project folder, per `CLAUDE.md` save rule.
 
-## What goes here:
-- Defect reports from `/07-report-bug` → `bug-[NNN]-[short-title].md`
-- Retest notes (add to the original bug file)
+---
 
-## Naming convention:
-`bug-[NNN]-[short-title].md`
-Example: `bug-042-login-submit-unresponsive-empty-password.md`
+## Where artifacts are saved
 
-## Defect lifecycle status:
-New → In Progress → Fixed → Retest → Closed / Reopened
+| Artifact | Save to |
+|---|---|
+| Defect report | `[Project-Folder]/bug-[NNN]-[short-title].md` |
 
-## Severity reference:
+**Examples:**
+```
+Telemax/bug-001-battery-level-not-updating.md
+Telemax/bug-002-prediction-returns-null-offline.md
+```
+
+---
+
+## Naming convention
+
+```
+bug-[NNN]-[short-title].md
+```
+
+| Part | Rule | Example |
+|---|---|---|
+| `bug-` | prefix | `bug-` |
+| `[NNN]` | 3-digit sequential ID | `001`, `042` |
+| `[short-title]` | kebab-case description | `login-submit-unresponsive` |
+
+Never reuse a bug ID — deleted bugs leave a gap.
+
+---
+
+## Defect lifecycle
+
+`New` → `In Progress` → `Fixed` → `Retest` → `Closed` / `Reopened`
+
+---
+
+## Severity reference
+
 | Severity | Definition |
 |---|---|
 | Critical | Crash, data loss, security breach, feature completely down |
@@ -21,5 +50,9 @@ New → In Progress → Fixed → Retest → Closed / Reopened
 | Medium | Partial break, workaround exists |
 | Low | Cosmetic, typo, minor UX |
 
-## Next step:
-After fix is deployed → retest and update bug file status to Closed or Reopened.
+---
+
+## Trigger
+
+Run `/07-report-bug` when a test case FAILs during execution.
+After fix is deployed → retest and update the bug file status to `Closed` or `Reopened`.
