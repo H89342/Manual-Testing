@@ -4,49 +4,54 @@ This folder is the entry point of the SDET workflow. Every feature you test must
 
 ---
 
-## What goes here
+## Folder structure
 
-| File type | Description |
-|---|---|
-| `req-[feature]_v1.md` | Requirement intake filled from the template |
-| `req-[feature]_v2.md` | Updated intake when requirement changes after v1 |
-| `brd-[feature].md` | Pasted BRD or spec excerpt (raw, unedited) |
-| `ux-[feature].md` | UX/design notes, screen names, flow references |
+```
+01-requirements/
+├── README.md
+├── req-template.md              ← MASTER TEMPLATE — never edit directly
+├── [project-name]/              ← one subfolder per project
+│   ├── req-[feature]_v1.md
+│   ├── req-[feature]_v2.md
+│   └── brd-[feature].md
+└── [another-project]/
+    └── req-[feature]_v1.md
+```
 
-> **Rule:** Never write test cases without a completed intake file in this folder.
+> **Rule:** Every project gets its own subfolder. Copy `req-template.md` into the project subfolder — never edit the master template directly.
+
+---
+
+## How to start a new requirement
+
+```
+1. Create a subfolder:  01-requirements/[your-project-name]/
+2. Copy the template:   req-template.md  →  [project-name]/req-[feature]_v1.md
+3. Fill in the copy — never touch req-template.md
+4. Run /01-read-requirements  (AI-assisted intake review)
+5. Run /02-analyze            (deep analysis)
+6. Run /03-qa                 (Q&A checklist)
+```
 
 ---
 
 ## Naming convention
 
 ```
-req-[feature-name]_v[N].md
+[project-name]/req-[feature-name]_v[N].md
 ```
 
 | Part | Description | Example |
 |---|---|---|
-| `req-` | prefix — always required | `req-` |
+| `[project-name]/` | project subfolder | `telemax/`, `omrom/` |
+| `req-` | file prefix | `req-` |
 | `[feature-name]` | kebab-case short name | `user-login`, `payment-checkout` |
 | `_v[N]` | version, starts at v1 | `_v1`, `_v2` |
 
 **Examples:**
-- `req-user-login_v1.md`
-- `req-payment-checkout_v2.md`
-- `brd-user-login.md`
-
----
-
-## Folder structure (when multiple features in progress)
-
-```
-01-requirements/
-├── README.md
-├── req-template.md              ← copy this for every new feature
-├── req-user-login_v1.md
-├── req-user-login_v2.md         ← updated after Q&A feedback
-├── req-payment-checkout_v1.md
-└── brd-payment-checkout.md      ← raw BRD paste for reference
-```
+- `telemax/req-user-login_v1.md`
+- `telemax/req-user-login_v2.md`  ← updated after Q&A feedback
+- `omrom/req-payment-checkout_v1.md`
 
 ---
 
@@ -58,13 +63,13 @@ req-[feature-name]_v[N].md
   - Scope is added or removed mid-cycle
   - Stakeholder changes the requirement after test cases are drafted
 - **Never overwrite** an existing version — always create a new file
-- Add a `## Change Log` section to each new version explaining what changed and why
+- Add a `## Change Log` entry to each new version explaining what changed and why
 
 ---
 
 ## Status tracking
 
-Add this status line at the top of every intake file:
+Add this line at the top of every intake file:
 
 ```
 **Status:** Draft | In Review | Confirmed | Superseded by v[N]
@@ -72,24 +77,10 @@ Add this status line at the top of every intake file:
 
 ---
 
-## Workflow
+## File types
 
-```
-Receive requirement
-       ↓
-Copy req-template.md → fill it in
-       ↓
-Run /01-read-requirements   (AI-assisted intake summary)
-       ↓
-Save completed file here as req-[feature]_v1.md
-       ↓
-Run /02-analyze             (deep analysis)
-       ↓
-Run /03-qa                  (Q&A checklist)
-```
-
----
-
-## Next step
-
-Once intake is complete → run `/02-analyze`
+| File prefix | Purpose |
+|---|---|
+| `req-[feature]_vN.md` | Requirement intake (filled from template) |
+| `brd-[feature].md` | Raw BRD / spec paste — unedited source |
+| `ux-[feature].md` | UX notes, screen names, Figma references |
